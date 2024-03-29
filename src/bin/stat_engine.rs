@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use data_statistics::{
-    services::PriceStatistic::{to_predicate, PredicateFilter},
+    services::PriceStatistic::{group_by, to_predicate, GroupFunc, PredicateFilter},
     PRICE_DATA,
 };
 use polars::{
@@ -25,19 +25,26 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .collect()?;
     println!("{:?}", df_csv);
-
+    let mut aggregator = HashMap::new();
+    aggregator.insert(
+        "price".to_string(),
+        vec![
+            GroupFunc::Min,
+            GroupFunc::Max,
+            GroupFunc::Sum,
+            GroupFunc::Mean,
+            GroupFunc::Median,
+            GroupFunc::Count,
+            GroupFunc::Quantile(0.25),
+            GroupFunc::Quantile(0.75),
+        ],
+    );
+    let expr = group_by(aggregator);
     let df = df_csv
         .clone()
         .lazy()
         .group_by(vec!["source", "year"])
-        .agg(vec![
-            col("price").min().alias("min_price"),
-            col("price").max().alias("max_price"),
-            col("price").sum().alias("sum_price"),
-            col("price").median().alias("median_price"),
-            col("price").mean().alias("mean_price"),
-            col("price").count().alias("count"),
-        ])
+        .agg(expr)
         .sort(
             "source",
             SortOptions {

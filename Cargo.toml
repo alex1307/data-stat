@@ -8,8 +8,22 @@ edition = "2021"
 target-dir = "/Users/matkat/Software/release/Rust/bin"
 
 [dependencies]
+axum = { version = "0.7.5", features = [
+    "form",
+    "http1",
+    "json",
+    "matched-path",
+    "original-uri",
+    "query",
+    "tokio",
+    "tower-log",
+    "tracing",
+] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5.0", features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 futures = "0.3.30"
-tokio = { version = "1.36.0", features = ["full"] }
 regex = "1.10.3"
 log = { version = "0.4.21", features = [
     "max_level_info",
@@ -25,7 +39,6 @@ chrono = "0.4.35"
 async-trait = "0.1.78"
 clap = { version = "4.5.3", features = ["derive"] }
 prost = "0.12.3"
-rdkafka = "0.36.2"
 uuid = { version = "1.8.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 polars = { version = "0.38.3", features = [
     "lazy",
@@ -39,6 +52,7 @@ polars = { version = "0.38.3", features = [
     "strings",
     "regex",
 ] }
+plotpy = "0.6.*"
 
 [build-dependencies]
 prost-build = "0.12.3"
