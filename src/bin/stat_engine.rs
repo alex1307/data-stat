@@ -5,7 +5,7 @@ use data_statistics::{
     PRICE_DATA,
 };
 use polars::{
-    chunked_array::ops::SortOptions,
+    chunked_array::ops::SortMultipleOptions,
     lazy::{dsl::col, frame::IntoLazy},
 };
 
@@ -46,20 +46,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .group_by(vec!["source", "year"])
         .agg(expr)
         .sort(
-            "source",
-            SortOptions {
-                descending: true,
-                nulls_last: true,
-                ..Default::default()
-            },
-        )
-        .sort(
-            "year",
-            SortOptions {
-                descending: true,
-                nulls_last: true,
-                ..Default::default()
-            },
+            &["source", "year"],
+            SortMultipleOptions::new().with_order_descendings([true, true]),
         )
         .collect()?;
     println!("{:?}", df);

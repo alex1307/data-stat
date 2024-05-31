@@ -7,17 +7,20 @@
 use std::time::Duration;
 
 use axum::{
-    body::Bytes,
-    http::{HeaderMap, Request, StatusCode},
+    body::{Body, Bytes},
+    extract::{Host, Path, Request},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 
 use data_statistics::{
+    configure_log4rs,
     services::PriceStatistic::{apply_filter, to_generic_json, FilterPayload},
     PRICE_DATA,
 };
+use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower_http::cors::CorsLayer;
@@ -27,11 +30,19 @@ use tracing::Span;
 
 #[tokio::main]
 async fn main() {
-    // initialize tracing
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "http_app=debug,tower_http=debug")
     }
     tracing_subscriber::fmt::init();
+    configure_log4rs();
+    info!("Starting server...");
+
+    tracing_subscriber::fmt::format()
+        .with_level(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_source_location(true)
+        .with_thread_ids(true);
 
     // build our application with a route
     let app = Router::new()
@@ -41,6 +52,7 @@ async fn main() {
         .route("/filter", post(filter))
         .route("/data", post(data))
         .route("/json", post(json))
+        .route("/enums/:name", get(enums))
         .layer(CorsLayer::permissive())
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
@@ -99,16 +111,16 @@ async fn filter(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
         tracing::info!("Sort: {:?}", payload.sort);
     }
 
-    if let Some(str_filter) = &payload.filter_string {
-        tracing::info!("Filter string: {:?}", str_filter);
+    if !&payload.filter_string.is_empty() {
+        tracing::info!("Filter string: {:?}", payload.filter_string);
     }
 
-    if let Some(i32_filter) = &payload.filter_i32 {
-        tracing::info!("Filter i32: {:?}", i32_filter);
+    if !&payload.filter_i32.is_empty() {
+        tracing::info!("Filter i32: {:?}", payload.filter_i32);
     }
 
-    if let Some(f64_filter) = &payload.filter_f64 {
-        tracing::info!("Filter f64: {:?}", f64_filter);
+    if !&payload.filter_f64.is_empty() {
+        tracing::info!("Filter f64: {:?}", payload.filter_f64);
     }
 
     (StatusCode::CREATED, Json({}))
@@ -126,6 +138,17 @@ async fn json(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
     let json = to_generic_json(&df);
 
     (StatusCode::CREATED, Json(json))
+}
+async fn enums(
+    Path(name): Path<String>,
+    Host(hostname): Host,
+    request: Request<Body>,
+) -> impl IntoResponse {
+    request.extensions().get::<String>();
+    info!("Query: {:?}", request.uri().query());
+    info!("Host: {:?}", hostname);
+    let map = data_statistics::services::EnumService::select(&name);
+    (StatusCode::OK, Json(map))
 }
 
 async fn create_user(

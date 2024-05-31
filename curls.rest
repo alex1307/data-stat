@@ -1,0 +1,93 @@
+# Get enums: /enums/:enum_name
+GET http://localhost:3000/enums/gearbox
+Accept: application/json
+
+# Search /filter
+###
+# Post request example
+POST http://localhost:3000/data
+Content-Type: application/json
+Accept: application/json
+
+{
+  "group_by": ["source", "year"],
+  "filter_string": [
+                {"Like":[{"make":"Mercedes-Benz"}, true]}
+            ],
+  "aggregate": {
+    "price": ["sum", 
+        "min", 
+        "max", 
+        "mean", 
+        "median", 
+        {"quantile": 0.25}
+    ]
+  },
+  "filter_i32": [
+                {"Gte":[{"mileage":10000, "price": 10000, "cc": 2500}, true]},
+                {"Lte":[{"mileage":60000, "price": 50000}, true]},
+                {"In":["year",[2016, 2017, 2018]]}
+            ],
+  "filter_f64": [],
+  "sort": [{"asc": ["source", true]}, {"asc": ["year", true]}]
+}
+
+
+# Search /filter
+###
+# Post request example
+POST http://localhost:3000/json
+Content-Type: application/json
+Accept: application/json
+
+{
+  "group_by": ["source", "year"],
+  "filter_string": [
+            ],
+  "aggregate": {
+    "price": ["sum", 
+        "min", 
+        "max", 
+        "mean", 
+        "median", 
+        {"quantile": 0.25}
+    ]
+  },
+  "filter_i32": [],
+  "filter_f64": [],
+  "sort": [{"asc": ["source", true]}, {"asc": ["year", true]}]
+}
+
+# {
+#   "group_by": ["source", "year"],
+#   "filter_string": [
+#     {"Like":[{"make":"Mercedes-Benz"}, true]}
+#   ],
+#   "aggregete": {
+#     "price": ["sum", 
+#         "min", 
+#         "max", 
+#         "mean", 
+#         "median", 
+#         {"quantile": 0.25}
+#     ]
+#   },
+#   "filter_i32": [{"Gte":[{ "year": 2014 }, true]}],
+#   "filter_f64": [],
+#   "sort": [{"asc": ["source", true]}, {"asc": ["year", true]}]
+# }
+
+# ###
+
+# # Put request example
+# PUT http://localhost:3000/api/v1/resource/1
+# Content-Type: application/json
+
+# {
+#   "key": "new_value"
+# }
+
+# ###
+
+# # Delete request example
+# DELETE http://localhost:3000/api/v1/resource/1
