@@ -1,15 +1,23 @@
 # Get enums: /enums/:enum_name
-GET http://localhost:3000/enums/gearbox
+GET https://ehomeho.com:3000/enums/make?source=estimated_price
 Accept: application/json
+
 
 # Search /filter
 ###
-# Post request example
-POST http://localhost:3000/data
+# Get enums: /enums/:make/models
+GET http://68.183.3.134:3000/enums/BMW/models?source=estimated_price
+Accept: application/json
+
+s
+###
+
+POST https://localhost:3000/data
 Content-Type: application/json
 Accept: application/json
 
 {
+  "source": "estimated_price",
   "group_by": ["source", "year"],
   "filter_string": [
                 {"Like":[{"make":"Mercedes-Benz"}, true]}
@@ -36,27 +44,27 @@ Accept: application/json
 # Search /filter
 ###
 # Post request example
-POST http://localhost:3000/json
+POST https://localhost:3000/json
 Content-Type: application/json
 Accept: application/json
 
-{
-  "group_by": ["source", "year"],
-  "filter_string": [
-            ],
-  "aggregate": {
-    "price": ["sum", 
-        "min", 
-        "max", 
-        "mean", 
-        "median", 
-        {"quantile": 0.25}
-    ]
-  },
-  "filter_i32": [],
-  "filter_f64": [],
-  "sort": [{"asc": ["source", true]}, {"asc": ["year", true]}]
-}
+{ "source": "estimated_price", 
+  "group_by": [], 
+  "aggregate": {}, 
+  "sort": [], 
+  "filter_string": [ { "Eq": [ { "make": "Audi" }, true ] }, { "Eq": [ { "model": "A1" }, true ] } ], 
+  "filter_i32": [], 
+  "filter_f64": [] }
+
+###
+# Post request example
+###
+
+POST https://localhost:3000/json
+Content-Type: application/json
+Accept: application/json
+
+{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "In": [ "gearbox", [ "Automatic" ] ] }, { "In": [ "engine", [ "Petrol" ] ] } ], "filter_i32": [ { "Gte": [ { "power_ps": 358 }, true ] }, { "In": [ "year", [ 2015, 2016 ] ] } ], "filter_f64": [] }
 
 # {
 #   "group_by": ["source", "year"],
@@ -91,3 +99,70 @@ Accept: application/json
 
 # # Delete request example
 # DELETE http://localhost:3000/api/v1/resource/1
+
+###
+# Post request example
+
+###
+POST https://ehomeho.com:3000/json
+Content-Type: application/json
+Accept: application/json
+
+{
+    "source": "estimated_price",
+    "group_by": [],
+    "aggregate": {},
+    "search": "4wd",
+    "sort": [],
+    "filter_string": [
+        {
+            "Eq": [
+                {
+                    "make": "BMW"
+                },
+                true
+            ]
+        },
+        {
+            "Eq": [
+                {
+                    "model": "320"
+                },
+                true
+            ]
+        },
+        {
+            "In": [
+                "gearbox",
+                [
+                    "Automatic"
+                ]
+            ]
+        },
+        {
+            "In": [
+                "engine",
+                [
+                    "Diesel",
+                    "Petrol"
+                ]
+            ]
+        }
+    ],
+    "filter_i32": [
+        {
+            "In": [
+                "year",
+                [
+                    2014,
+                    2015,
+                    2017,
+                    2018
+                ]
+            ]
+        }
+    ],
+    "filter_f64": []
+}
+
+###

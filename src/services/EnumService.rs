@@ -1,20 +1,18 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use lazy_static::lazy_static;
+use log::info;
 use polars::{
     chunked_array::ops::SortMultipleOptions,
-    datatypes::DataType,
     lazy::{
         dsl::{col, lit},
-        frame::IntoLazy,
+        frame::{IntoLazy, LazyFrame},
     },
 };
 
-use crate::PRICE_DATA;
-
 lazy_static! {
-    pub static ref MILEAGE_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref MILEAGE_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
         map.insert("5000".to_string(), "5,000km".to_string());
         map.insert("10000".to_string(), "10,000km".to_string());
@@ -31,8 +29,8 @@ lazy_static! {
         map.insert("150000".to_string(), "150,000 km".to_string());
         map
     };
-    pub static ref CC_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref CC_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
         map.insert("900".to_string(), "900".to_string());
         map.insert("1000".to_string(), "1,000".to_string());
@@ -49,8 +47,8 @@ lazy_static! {
         map.insert("4500".to_string(), "4,500".to_string());
         map
     };
-    pub static ref POWER_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref POWER_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
         map.insert("34".to_string(), "34".to_string());
         map.insert("50".to_string(), "50".to_string());
@@ -69,11 +67,8 @@ lazy_static! {
         map.insert("454".to_string(), "454".to_string());
         map
     };
-    pub static ref MAKE_FILTER: HashMap<String, String> = unique_values(&PRICE_DATA, "make");
-    pub static ref ENGINE_FILTER: HashMap<String, String> = unique_values(&PRICE_DATA, "engine");
-    pub static ref GEARBOX_FILTER: HashMap<String, String> = unique_values(&PRICE_DATA, "gearbox");
-    pub static ref PRICE_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref PRICE_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
         map.insert("5000".to_string(), "5,000".to_string());
         map.insert("10000".to_string(), "10,000".to_string());
@@ -88,8 +83,8 @@ lazy_static! {
         map.insert("100000".to_string(), "100,000".to_string());
         map
     };
-    pub static ref YEAR_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref YEAR_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("2014".to_string(), "2014".to_string());
         map.insert("2015".to_string(), "2015".to_string());
         map.insert("2016".to_string(), "2016".to_string());
@@ -103,9 +98,8 @@ lazy_static! {
         map.insert("2024".to_string(), "2024".to_string());
         map
     };
-    pub static ref SOURCE_FILTER: HashMap<String, String> = unique_values(&PRICE_DATA, "source");
-    pub static ref GROUP_BY_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref GROUP_BY_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("source".to_string(), "Source".to_string());
         map.insert("make".to_string(), "Make".to_string());
         map.insert("model".to_string(), "Model".to_string());
@@ -116,8 +110,8 @@ lazy_static! {
         map.insert("last_updated_on".to_string(), "Last Updated On".to_string());
         map
     };
-    pub static ref SORT_BY_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref SORT_BY_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("".to_string(), " Order by:".to_string());
         map.insert("source".to_string(), "Source".to_string());
         map.insert("make".to_string(), "Make".to_string());
@@ -136,53 +130,43 @@ lazy_static! {
         map.insert("last_updated_on".to_string(), "Last Updated On".to_string());
         map
     };
-    pub static ref ASC_FILTER: HashMap<String, String> = {
-        let mut map = HashMap::new();
+    pub static ref ASC_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
         map.insert("asc".to_string(), "Ascending".to_string());
         map.insert("desc".to_string(), "Descending".to_string());
         map
     };
 }
 
-pub fn select(filter: &str) -> HashMap<String, String> {
+pub fn select(filter: &str, df: &LazyFrame) -> BTreeMap<String, String> {
     if filter.is_empty() {
-        return HashMap::new();
+        return BTreeMap::new();
     }
     match filter.to_lowercase().as_str() {
         "mileage" => MILEAGE_FILTER.clone(),
         "power" => POWER_FILTER.clone(),
-        "make" => MAKE_FILTER.clone(),
-        "engine" => ENGINE_FILTER.clone(),
-        "gearbox" => GEARBOX_FILTER.clone(),
+        "make" => unique_values(df, filter),
+        "engine" => unique_values(df, filter),
+        "gearbox" => unique_values(df, filter),
         "price" => PRICE_FILTER.clone(),
         "year" => YEAR_FILTER.clone(),
         "cc" => CC_FILTER.clone(),
-        "source" => SOURCE_FILTER.clone(),
+        "source" => unique_values(df, filter),
         "group_by" => GROUP_BY_FILTER.clone(),
         "sort_by" => SORT_BY_FILTER.clone(),
         "asc" => ASC_FILTER.clone(),
-        _ => HashMap::new(),
+        _ => BTreeMap::new(),
     }
 }
 
-fn unique_values(df: &polars::prelude::LazyFrame, column_name: &str) -> HashMap<String, String> {
-    let columns = vec!["key".to_string(), "value".to_string()];
+fn unique_values(df: &polars::prelude::LazyFrame, column_name: &str) -> BTreeMap<String, String> {
     let unique = &df
         .clone()
         .lazy()
-        .select([
-            col(column_name)
-                .cast(DataType::String)
-                .str()
-                .replace_all(lit(" "), lit(""), false)
-                .str()
-                .replace_all(lit("-"), lit(""), false)
-                .alias("key"),
-            col(column_name).alias("value"),
-        ])
-        .unique(Some(columns), polars::frame::UniqueKeepStrategy::Any)
+        .select([col(column_name)])
+        .unique(None, polars::frame::UniqueKeepStrategy::First)
         .sort(
-            ["value"],
+            [column_name],
             SortMultipleOptions {
                 descending: vec![false],
                 nulls_last: true,
@@ -192,21 +176,45 @@ fn unique_values(df: &polars::prelude::LazyFrame, column_name: &str) -> HashMap<
         .collect()
         .unwrap();
     let series = unique.get_columns();
-    let mut map = HashMap::new();
+    info!("Unique values: {:?}", series[0].len());
+    let mut map = BTreeMap::new();
     let keys = series[0].str().unwrap();
-    let values = series[1].str().unwrap();
-    let count = keys.len();
-    for i in 0..count {
-        let key = keys.get(i).unwrap();
-        let value = values.get(i).unwrap();
-        if key == "NOTFOUND" {
+
+    info!("Unique values: {:?}", keys);
+
+    for k in keys.into_iter().flatten() {
+        if k.to_uppercase() == "NOTFOUND" {
             continue;
         }
-
-        map.insert(key.to_string(), value.to_string());
+        map.insert(k.to_string(), k.to_string());
     }
-    if column_name == "make" {
-        map.insert("".to_string(), " Select".to_string());
+
+    map
+}
+
+pub fn models(make: &str, df: &LazyFrame) -> BTreeMap<String, String> {
+    let mut map = BTreeMap::new();
+
+    let df = df
+        .clone()
+        .lazy()
+        .filter(col("make").eq(lit(make)))
+        .select([col("model")])
+        .unique(None, polars::frame::UniqueKeepStrategy::First)
+        .sort(
+            ["model"],
+            SortMultipleOptions {
+                descending: vec![false],
+                nulls_last: true,
+                ..Default::default()
+            },
+        )
+        .collect()
+        .unwrap();
+    let series = df.get_columns();
+    let keys = series[0].str().unwrap();
+    for k in keys.into_iter().flatten() {
+        map.insert(k.to_string(), k.to_string());
     }
     map
 }

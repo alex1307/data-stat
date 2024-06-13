@@ -1,0 +1,15 @@
+[Unit]
+Description=Vehicle Data
+After=network.target
+
+[Service]
+WorkingDirectory=/vehicle-app
+ExecStart=/vehicle-data
+Restart=on-failure
+Environment="RUST_BACKTRACE=1"
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=vehicle-data
+
+[Install]
+WantedBy=multi-user.target

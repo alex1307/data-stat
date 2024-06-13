@@ -15,6 +15,8 @@ use polars::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::HIDDEN_COLUMNS;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PredicateFilter<T: ToOwned + ToString + Debug + Clone + Literal> {
     Like(HashMap<String, T>, bool),
@@ -49,8 +51,10 @@ struct FinalJson<X, Y> {
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FilterPayload {
+    pub source: Option<String>,
     pub group_by: Vec<String>,
     pub aggregate: Option<HashMap<String, Vec<GroupFunc>>>,
+    pub search: Option<String>,
     pub filter_string: Vec<PredicateFilter<String>>,
     pub filter_i32: Vec<PredicateFilter<i32>>,
     pub filter_f64: Vec<PredicateFilter<f64>>,
@@ -142,19 +146,28 @@ fn to_like_predicate<T: ToString + ToOwned + Debug + Literal>(
     join_and: bool,
 ) -> Option<polars::lazy::dsl::Expr> {
     let mut predicates = vec![];
+    let mut column_predicates = vec![];
     for (c, v) in filter.iter() {
-        let p = if v.to_string().starts_with("*") {
+        let p = if v.to_string().starts_with('*') {
             col(c).str().ends_with(lit(v.to_string().replace('*', "")))
-        } else if v.to_string().ends_with("*") {
+        } else if v.to_string().ends_with('*') {
             col(c)
                 .str()
                 .starts_with(lit(v.to_string().replace('*', "")))
         } else {
             col(c).str().contains(lit(v.to_string()), false)
         };
-
-        predicates.push(p);
+        column_predicates.push(p);
     }
+
+    let column_predicate = column_predicates
+        .iter()
+        .cloned()
+        .reduce(|acc, b| acc.or(b))
+        .unwrap();
+
+    predicates.push(column_predicate);
+
     if predicates.is_empty() {
         return None;
     }
@@ -225,7 +238,7 @@ fn to_compare_predicate<T: Debug + ToOwned + ToString + Clone + Literal>(
     }
     let mut predicates = vec![];
     for (c, v) in key_values.iter() {
-        info!("column {}: value {}", c, v.to_string());
+        tracing::info!("column {}: value {}", c, v.to_string());
         let predicate = match compare {
             Compare::Eq => col(c).eq(lit(v.clone())),
             Compare::Gt => col(c).gt(lit(v.clone())),
@@ -235,7 +248,7 @@ fn to_compare_predicate<T: Debug + ToOwned + ToString + Clone + Literal>(
         };
         predicates.push(predicate);
     }
-    info!("predicates {:?}", predicates);
+    tracing::info!("predicates {:?}", predicates);
     let mut predicate = predicates[0].clone();
     for p in predicates.iter().skip(1) {
         if join_and {
@@ -315,6 +328,16 @@ pub fn apply_filter(
             predicates.push(to_predicate(f.clone()).unwrap());
         }
     }
+    if let Some(search) = filter.search {
+        let mut search_filter = HashMap::new();
+        search_filter.insert("title".to_string(), search.clone());
+        search_filter.insert("equipment".to_string(), search.clone());
+        search_filter.insert("dealer".to_string(), search.clone());
+        let predicate = to_like_predicate(search_filter, true);
+        if let Some(p) = predicate {
+            predicates.push(p);
+        }
+    }
     if !predicates.is_empty() {
         if predicates.len() == 1 {
             results = results.filter(predicates[0].clone());
@@ -352,12 +375,19 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
     json.insert("count".to_owned(), data.height().into());
     info!("Column count: {}", column_values.len());
     let mut metadata = HashMap::new();
-    let mut idx = 0;
+
     let mut meta = vec![];
-    for cv in column_values {
-        metadata.insert("column_name".to_owned(), json!(cv.name()));
+    for (idx, cv) in column_values.iter().enumerate() {
+        let name = cv.name();
+        metadata.insert("column_name".to_owned(), json!(name));
         metadata.insert("column_index".to_owned(), json!(idx));
         metadata.insert("column_dtype".to_owned(), json!(cv.dtype().to_string()));
+        if HIDDEN_COLUMNS.iter().any(|c| c == name) {
+            metadata.insert("visible".to_owned(), json!(false));
+        } else {
+            metadata.insert("visible".to_owned(), json!(true));
+        }
+
         meta.push(metadata.clone());
 
         let values = if cv.dtype() == &DataType::Int32 {
@@ -394,7 +424,6 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
             json!(values)
         };
         json.insert(cv.name().to_owned(), values);
-        idx += 1;
     }
     json.insert("metadata".to_owned(), json!(meta));
     json
@@ -402,14 +431,12 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::Path};
 
-    use plotpy::{generate3d, Contour, Curve, Histogram, Plot, RayEndpoint, Surface};
     use polars::{
         chunked_array::ops::SortMultipleOptions, datatypes::DataType, lazy::frame::IntoLazy,
     };
 
-    use crate::PRICE_DATA;
+    use crate::ESTIMATE_PRICE_DATA;
 
     use super::*;
 
@@ -425,7 +452,7 @@ mod tests {
         let predicate1 = to_predicate(make_filter).unwrap();
         let predicate2 = to_predicate(year_eq_filter).unwrap();
         let predicate = predicate1.and(predicate2);
-        let df = PRICE_DATA
+        let df = ESTIMATE_PRICE_DATA
             .clone()
             .lazy()
             .filter(predicate)
@@ -449,7 +476,7 @@ mod tests {
         let predicate2 = to_predicate(year_eq_filter).unwrap();
         let predicate3 = to_predicate(model_like_filter).unwrap();
         let predicate = predicate1.and(predicate2).and(predicate3);
-        let df = PRICE_DATA
+        let df = ESTIMATE_PRICE_DATA
             .clone()
             .lazy()
             .select([
@@ -480,179 +507,6 @@ mod tests {
     }
 
     #[test]
-    fn draw_countour() {
-        let n = 21;
-        let (x, y, z) = generate3d(-2.0, 2.0, -2.0, 2.0, n, n, |x, y| x * x - y * y);
-
-        // configure contour
-        let mut contour = Contour::new();
-        contour
-            .set_colorbar_label("temperature")
-            .set_colormap_name("terrain")
-            .set_selected_level(0.0, true);
-
-        // draw contour
-        contour.draw(&x, &y, &z);
-
-        // add contour to plot
-        let mut plot = Plot::new();
-        plot.add(&contour);
-        plot.set_labels("x", "y");
-
-        // save figure
-        plot.save("resources/contour.jpg").unwrap();
-    }
-    #[test]
-    fn draw_sample() {
-        let r = &[1.0, 1.0, 1.0];
-        let c = &[-1.0, -1.0, -1.0];
-        let k = &[0.5, 0.5, 0.5];
-        let mut star = Surface::new();
-        star.set_colormap_name("jet")
-            .draw_superquadric(c, r, k, -180.0, 180.0, -90.0, 90.0, 40, 20)
-            .unwrap();
-
-        // pyramids
-        let c = &[1.0, -1.0, -1.0];
-        let k = &[1.0, 1.0, 1.0];
-        let mut pyramids = Surface::new();
-        pyramids
-            .set_colormap_name("inferno")
-            .draw_superquadric(c, r, k, -180.0, 180.0, -90.0, 90.0, 40, 20)
-            .unwrap();
-
-        // rounded cube
-        let c = &[-1.0, 1.0, 1.0];
-        let k = &[4.0, 4.0, 4.0];
-        let mut cube = Surface::new();
-        cube.set_surf_color("#ee29f2")
-            .draw_superquadric(c, r, k, -180.0, 180.0, -90.0, 90.0, 40, 20)
-            .unwrap();
-
-        // sphere
-        let c = &[0.0, 0.0, 0.0];
-        let k = &[2.0, 2.0, 2.0];
-        let mut sphere = Surface::new();
-        sphere
-            .set_colormap_name("rainbow")
-            .draw_superquadric(c, r, k, -180.0, 180.0, -90.0, 90.0, 40, 20)
-            .unwrap();
-
-        // sphere (direct)
-        let mut sphere_direct = Surface::new();
-        sphere_direct
-            .draw_sphere(&[1.0, 1.0, 1.0], 1.0, 40, 20)
-            .unwrap();
-
-        // add features to plot
-        let mut plot = Plot::new();
-        plot.add(&star)
-            .add(&pyramids)
-            .add(&cube)
-            .add(&sphere)
-            .add(&sphere_direct);
-
-        // save figure
-        plot.set_equal_axes(true)
-            .set_figure_size_points(600.0, 600.0)
-            .save("resources/superquadric.svg")
-            .unwrap();
-        fs::remove_file("resources/superquadric.py").unwrap();
-    }
-    #[test]
-    fn test_histogram() {
-        let mut histogram = Histogram::new();
-        histogram
-            .set_colors(&vec!["#cd0000", "#1862ab", "#cd8c00"])
-            .set_style("barstacked")
-            .set_number_bins(2)
-            .set_stacked(true);
-
-        // draw histogram
-        let values = vec![
-            vec![1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 4, 5, 6],
-            vec![-1],
-            vec![0], // first series                                              // third series
-        ];
-        let labels = ["first", "second", "third"];
-        histogram.draw(&values, &labels);
-
-        // add histogram to plot
-        let mut plot = Plot::new();
-        plot.set_label_x("X")
-            .set_label_y("Y")
-            .set_range(-10.0, 10.0, 0.0, 15.0)
-            .set_title("Histogram");
-
-        plot.add(&histogram);
-
-        // save figure
-        let path = Path::new("resources").join("histogram.jpg");
-        plot.save(&path).unwrap();
-        fs::remove_file("resources/histogram.py").unwrap_or_default();
-    }
-
-    #[test]
-    fn distribution_plot() {
-        let mut curve1 = Curve::new();
-        curve1
-            .set_line_alpha(0.7)
-            .set_line_color("#cd0000")
-            .set_line_style("--")
-            .set_line_width(2.0)
-            .set_marker_color("#1862ab")
-            .set_marker_every(2)
-            .set_marker_void(false)
-            .set_marker_line_color("#cda500")
-            .set_marker_line_width(3.0)
-            .set_marker_size(8.0)
-            .set_marker_style("p");
-
-        // another curve
-        let mut curve2 = Curve::new();
-        curve2
-            .set_line_style("None")
-            .set_marker_line_color("#1862ab")
-            .set_marker_style("8")
-            .set_marker_void(true);
-
-        // draw curves
-        let x = &[1.0, 2.0, 3.0];
-        let y = &[1.0, 1.41421356, 1.73205081];
-        let y2 = &[1.0, 1.5, 2.0];
-        curve1.draw(x, y);
-        curve2.draw(x, y2);
-
-        // draw ray
-        let mut ray1 = Curve::new();
-        let mut ray2 = Curve::new();
-        let mut ray3 = Curve::new();
-        let mut ray4 = Curve::new();
-        ray1.set_line_color("orange");
-        ray2.set_line_color("gold");
-        ray3.set_line_color("yellow");
-        ray4.set_line_color("#9b7014");
-        ray1.draw_ray(2.0, 0.0, RayEndpoint::Coords(8.0, 0.5));
-        ray2.draw_ray(2.0, 0.0, RayEndpoint::Slope(0.2));
-        ray3.draw_ray(2.0, 0.0, RayEndpoint::Horizontal);
-        ray4.draw_ray(2.0, 0.0, RayEndpoint::Vertical);
-
-        // add curves to plot
-        let mut plot = Plot::new();
-        plot.add(&curve1)
-            .add(&curve2)
-            .add(&ray1)
-            .add(&ray2)
-            .add(&ray3)
-            .add(&ray4);
-
-        // save figure
-
-        plot.save("resources/curve.jpg").unwrap();
-        fs::remove_file("resources/curve.py").unwrap_or_default();
-    }
-
-    #[test]
     fn test_from_json() {
         let json = r#"{
             "group_by": ["source", "year"],
@@ -671,11 +525,10 @@ mod tests {
             "filter_f64": []
         }"#;
         let payload: FilterPayload = serde_json::from_str(json).unwrap();
-        let df = apply_filter(&PRICE_DATA, payload);
+        let df = apply_filter(&ESTIMATE_PRICE_DATA, payload);
         let row_count = df.height();
         info!("Row count: {}", row_count);
 
-        let x = df.get_column_names();
         let y = df.get_columns();
 
         let mut axis = vec![];
@@ -761,19 +614,6 @@ mod tests {
     #[test]
     fn test_to_in_predicate() {
         let json = r#"{
-            "group_by": ["source", "year"],
-            "aggregate": {
-                "price": ["max", "count", {"quantile":0.25}]
-            },
-            "sort": [{"asc": ["source", true]}, {"asc": ["year", true]}],
-            "filter_string": {
-                "Like":[{"make":"Mercedes-Benz"}, true, true]
-            },
-            "filter_i32": {
-                "Eq":[{"year":2014}, true]
-            }
-        }"#;
-        let json = r#"{
             "group_by": [
                 "source",
                 "year"
@@ -852,7 +692,9 @@ mod tests {
             "filter_f64": []
         }"#;
         let payload: FilterPayload = serde_json::from_str(json).unwrap();
-        let df = apply_filter(&PRICE_DATA, payload);
+        let df = apply_filter(&ESTIMATE_PRICE_DATA, payload);
+        let row_count = df.height();
+        info!("Row count: {}", row_count);
     }
 
     #[test]
@@ -860,10 +702,10 @@ mod tests {
         let column_name = "power_ps";
         let mut eq_filter = HashMap::new();
         eq_filter.insert(column_name.to_string(), "Volvo");
-        let make_filter = PredicateFilter::Eq(eq_filter, true);
+
         // let predicate1 = to_predicate(make_filter).unwrap();
         let columns = vec!["key".to_string(), "value".to_string()];
-        let unique = &PRICE_DATA
+        let unique = &ESTIMATE_PRICE_DATA
             .clone()
             .lazy()
             .select([
