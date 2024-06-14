@@ -17,23 +17,21 @@ lazy_static! {
         let mut schema = Schema::new();
         schema.with_column("advert_id".into(), polars::datatypes::DataType::String);
         schema.with_column("source".into(), polars::datatypes::DataType::String);
-        schema.with_column("changed_on".into(), polars::datatypes::DataType::Date);
+        schema.with_column("title".into(), polars::datatypes::DataType::String);
         schema.with_column("make".into(), polars::datatypes::DataType::String);
         schema.with_column("model".into(), polars::datatypes::DataType::String);
         schema.with_column("year".into(), polars::datatypes::DataType::Int32);
         schema.with_column("engine".into(), polars::datatypes::DataType::String);
         schema.with_column("gearbox".into(), polars::datatypes::DataType::String);
         schema.with_column("cc".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("power_ps".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("power".into(), polars::datatypes::DataType::Int32);
         schema.with_column("power_kw".into(), polars::datatypes::DataType::Int32);
         schema.with_column("mileage".into(), polars::datatypes::DataType::Int32);
         schema.with_column("currency".into(), polars::datatypes::DataType::String);
-        schema.with_column("price".into(), polars::datatypes::DataType::Int32);
         schema.with_column("estimated_price".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("price".into(), polars::datatypes::DataType::Int32);
         schema.with_column("save_diff".into(), polars::datatypes::DataType::Int32);
         schema.with_column("discount".into(), polars::datatypes::DataType::Float32);
-        schema.with_column("title".into(), polars::datatypes::DataType::String);
-        schema.with_column("dealer".into(), polars::datatypes::DataType::String);
         schema.with_column("equipment".into(), polars::datatypes::DataType::String);
         schema.with_column("url".into(), polars::datatypes::DataType::String);
 
