@@ -1,12 +1,12 @@
 # Get enums: /enums/:enum_name
-GET https://ehomeho.com:3000/enums/make?source=estimated_price
+GET https://localhost:3000/enums/make?source=estimated_price
 Accept: application/json
 
 
 # Search /filter
 ###
 # Get enums: /enums/:make/models
-GET http://68.183.3.134:3000/enums/BMW/models?source=estimated_price
+GET https://localhost:3000/enums/BMW/models?source=estimated_price
 Accept: application/json
 
 s
@@ -48,13 +48,7 @@ POST https://localhost:3000/json
 Content-Type: application/json
 Accept: application/json
 
-{ "source": "estimated_price", 
-  "group_by": [], 
-  "aggregate": {}, 
-  "sort": [], 
-  "filter_string": [ { "Eq": [ { "make": "Audi" }, true ] }, { "Eq": [ { "model": "A1" }, true ] } ], 
-  "filter_i32": [], 
-  "filter_f64": [] }
+{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "Eq": [ { "make": "Audi" }, true ] } ], "filter_i32": [ { "Gte": [ { "mileage": 20000 }, true ] } ], "filter_date": [], "filter_f64": [] }
 
 ###
 # Post request example
@@ -64,7 +58,7 @@ POST https://localhost:3000/json
 Content-Type: application/json
 Accept: application/json
 
-{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "In": [ "gearbox", [ "Automatic" ] ] }, { "In": [ "engine", [ "Petrol" ] ] } ], "filter_i32": [ { "Gte": [ { "power_ps": 358 }, true ] }, { "In": [ "year", [ 2015, 2016 ] ] } ], "filter_f64": [] }
+{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "Eq": [ { "make": "Audi" }, true ] } ], "filter_i32": [ { "Gte": [ { "mileage": 20000 }, true ] } ], "filter_date": [], "filter_f64": [] }
 
 # {
 #   "group_by": ["source", "year"],

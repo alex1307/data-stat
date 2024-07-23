@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, vec};
 
+use chrono::NaiveDate;
 use log::info;
 use polars::{
     chunked_array::ops::SortMultipleOptions,
@@ -58,6 +59,7 @@ pub struct FilterPayload {
     pub filter_string: Vec<PredicateFilter<String>>,
     pub filter_i32: Vec<PredicateFilter<i32>>,
     pub filter_f64: Vec<PredicateFilter<f64>>,
+    pub filter_date: Vec<PredicateFilter<NaiveDate>>,
     pub sort: Vec<SortBy>,
 }
 
@@ -141,7 +143,7 @@ struct PriceFilter {
     last_updated_on_eq: Option<String>,
 }
 
-fn to_like_predicate<T: ToString + ToOwned + Debug + Literal>(
+pub fn to_like_predicate<T: ToString + ToOwned + Debug + Literal>(
     filter: HashMap<String, T>,
     join_and: bool,
 ) -> Option<polars::lazy::dsl::Expr> {
@@ -303,7 +305,7 @@ pub fn sort(df: polars::prelude::LazyFrame, sort: Vec<SortBy>) -> polars::prelud
 
     df.sort(
         &columns,
-        SortMultipleOptions::new().with_order_descendings(orders),
+        SortMultipleOptions::new().with_order_descending(false),
     )
 }
 
@@ -328,11 +330,15 @@ pub fn apply_filter(
             predicates.push(to_predicate(f.clone()).unwrap());
         }
     }
+    if !filter.filter_date.is_empty() {
+        for f in filter.filter_date.iter() {
+            predicates.push(to_predicate(f.clone()).unwrap());
+        }
+    }
     if let Some(search) = filter.search {
         let mut search_filter = HashMap::new();
         search_filter.insert("title".to_string(), search.clone());
         search_filter.insert("equipment".to_string(), search.clone());
-        search_filter.insert("dealer".to_string(), search.clone());
         let predicate = to_like_predicate(search_filter, true);
         if let Some(p) = predicate {
             predicates.push(p);
@@ -724,7 +730,7 @@ mod tests {
                 vec!["value"],
                 SortMultipleOptions {
                     descending: vec![false],
-                    nulls_last: true,
+                    nulls_last: vec![true],
                     ..Default::default()
                 },
             )

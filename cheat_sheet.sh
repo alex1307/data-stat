@@ -8,3 +8,4 @@ ssh -i ~/.ssh/digital_ocean_ssh_key.key root@68.183.3.134
 digitalocean
 
 scp -r src root@68.183.3.134:/vehicle-ui
+cargo run -- --cert-dir /Users/matkat/Software/ehomeho.com

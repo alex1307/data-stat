@@ -15,11 +15,15 @@ use axum::{
     Json, Router,
 };
 
+use axum_prometheus::PrometheusMetricLayer;
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use data_statistics::{
     configure_log4rs,
-    services::PriceStatistic::{apply_filter, to_generic_json, FilterPayload},
+    services::{
+        PriceStatistic::{apply_filter, to_generic_json, FilterPayload},
+        Statistic::{stat_distribution, StatisticSearchPayload},
+    },
     Payload, ESTIMATE_PRICE_DATA,
 };
 use log::info;
@@ -38,6 +42,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
     //tracing_subscriber::fmt::init();
     configure_log4rs("resources/log4rs.yml");
     info!("Starting server...");
@@ -69,9 +74,12 @@ async fn main() {
         .route("/filter", post(filter))
         .route("/data", post(data))
         .route("/json", post(json))
+        .route("/statistic", post(statistic))
         .route("/enums/:name", get(enums))
         .route("/enums/:make/models", get(models))
-        .layer(cors);
+        .route("/metrics", get(|| async move { metric_handle.render() }))
+        .layer(cors)
+        .layer(prometheus_layer);
     // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
     // It provides good defaults but is also very customizable.
     //
@@ -131,10 +139,16 @@ async fn json(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
     let dataframe = Payload {
         source: payload.source.clone().unwrap_or("".to_string()),
     };
-    let df = apply_filter(dataframe.get_dataframe(), payload);
+    let df = apply_filter(dataframe.get_dataframe(), payload.clone());
+    info!("payload: {:?}", payload);
     let json = to_generic_json(&df);
 
     (StatusCode::OK, Json(json))
+}
+
+async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    let response = stat_distribution(payload);
+    (StatusCode::OK, Json(response))
 }
 async fn models(
     Path(make): Path<String>,

@@ -44,7 +44,7 @@ async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["derive"] }
 uuid = { version = "1.8.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 openssl = { version = "0.10", features = ["vendored"] }
-polars = { version = "0.40.0", features = [
+polars = { version = "0.41", features = [
     "lazy",
     "temporal",
     "describe",
@@ -61,10 +61,11 @@ polars = { version = "0.40.0", features = [
     "regex",
 
 ] }
+axum-prometheus = "0.7.0"
 
 
 [build-dependencies]
-prost-build = "0.12.4"
+prost-build = "0.13.1"
 
 
 [[bin]]

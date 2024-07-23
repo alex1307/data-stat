@@ -1,0 +1,40 @@
+{
+  "make": "BMW",
+  "model": "320",
+  "year": 2018,
+  "engine": "Petrol",
+  "gearbox": null,
+  "powerFrom": 150,
+  "powerTo": 200,
+  "mileageFrom": 50000,
+  "mileageTo": 80000,
+  "ccFrom": null,
+  "ccTo": null,
+  "group": [
+    "make",
+    "model"
+  ],
+  "aggregators": [
+    "count",
+    "mean",
+    "median",
+    "std",
+    "avg",
+    "rsd",
+    "quantile_60",
+    "quantile_66",
+    "quantile_75",
+    "quantile_80",
+    "quantile_90",
+    "min",
+    "max"
+  ],
+  "order": [
+    {
+      "column": "make",
+      "asc": true
+    }
+  ],
+  "stat_column": "save_diff",
+  "estimated_price": 0
+}
