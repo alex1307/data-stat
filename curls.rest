@@ -2,6 +2,11 @@
 GET https://localhost:3000/enums/make?source=estimated_price
 Accept: application/json
 
+# Get enums: /enums/:enum_name
+###
+GET https://localhost:3000/enums/saveDiff
+Accept: application/json
+
 
 # Search /filter
 ###
@@ -58,7 +63,7 @@ POST https://localhost:3000/json
 Content-Type: application/json
 Accept: application/json
 
-{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "Eq": [ { "make": "Audi" }, true ] } ], "filter_i32": [ { "Gte": [ { "mileage": 20000 }, true ] } ], "filter_date": [], "filter_f64": [] }
+{ "source": "estimated_price", "group_by": [], "aggregate": {}, "sort": [], "filter_string": [ { "Eq": [ { "make": "Aston Martin" }, true ] } ], "filter_i32": [ { "Gte": [ { "mileage": 20000 }, true ] } ], "filter_date": [], "filter_f64": [] }
 
 # {
 #   "group_by": ["source", "year"],

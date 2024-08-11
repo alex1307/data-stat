@@ -21,7 +21,7 @@ axum = { version = "0.7.5", features = [
 
 ] }
 
-axum-server = { version = "0.6.0", features = ["tls-rustls"] }
+axum-server = { version = "0.7.1", features = ["tls-rustls"] }
 axum-util = "0.2.2"
 tokio = { version = "1.37.0", features = ["full"] }
 tower-http = { version = "0.5.2", features = ["trace", "cors"] }

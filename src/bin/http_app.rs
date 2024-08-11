@@ -21,8 +21,8 @@ use clap::Parser;
 use data_statistics::{
     configure_log4rs,
     services::{
-        PriceStatistic::{apply_filter, to_generic_json, FilterPayload},
-        Statistic::{stat_distribution, StatisticSearchPayload},
+        PriceStatistic::{apply_filter, FilterPayload},
+        Statistic::{search, stat_distribution, StatisticSearchPayload},
     },
     Payload, ESTIMATE_PRICE_DATA,
 };
@@ -135,15 +135,9 @@ async fn data(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
     (StatusCode::OK, Json(json))
 }
 
-async fn json(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
-    let dataframe = Payload {
-        source: payload.source.clone().unwrap_or("".to_string()),
-    };
-    let df = apply_filter(dataframe.get_dataframe(), payload.clone());
-    info!("payload: {:?}", payload);
-    let json = to_generic_json(&df);
-
-    (StatusCode::OK, Json(json))
+async fn json(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    let response = search(payload.clone());
+    (StatusCode::OK, Json(response))
 }
 
 async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {

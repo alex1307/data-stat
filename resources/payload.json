@@ -1,15 +1,25 @@
 {
+  "search": null,
   "make": "BMW",
   "model": "320",
-  "year": 2018,
-  "engine": "Petrol",
+  "engine": [
+    "Petrol"
+  ],
   "gearbox": null,
+  "yearFrom": null,
+  "yearTo": null,
+  "year": 2018,
   "powerFrom": 150,
   "powerTo": 200,
+  "power": null,
   "mileageFrom": 50000,
   "mileageTo": 80000,
+  "mileage": null,
   "ccFrom": null,
   "ccTo": null,
+  "cc": null,
+  "saveDifference": null,
+  "discount": null,
   "group": [
     "make",
     "model"
@@ -35,6 +45,6 @@
       "asc": true
     }
   ],
-  "stat_column": "save_diff",
+  "stat_column": "price_in_eur",
   "estimated_price": 0
 }

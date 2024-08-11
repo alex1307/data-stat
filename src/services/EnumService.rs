@@ -30,6 +30,18 @@ lazy_static! {
         map.insert("150000".to_string(), "150,000 km".to_string());
         map
     };
+    pub static ref MILEAGE_STATUS_FILTER: BTreeMap<String, String> = {
+        let mut map = BTreeMap::new();
+        map.insert("1".to_string(), "Less than 20 000 km".to_string());
+        map.insert("2".to_string(), "Betweeen 20 000 km. and 40 000 km.".to_string());
+        map.insert("3".to_string(), "Betweeen 40 000 km. and 60 000 km.".to_string());
+        map.insert("4".to_string(), "Betweeen 60 000 km. and 80 000 km.".to_string());
+        map.insert("5".to_string(), "Betweeen 80 000 km. and 100 000 km.".to_string());
+        map.insert("6".to_string(), "Betweeen 100 000 km. and 120 000 km.".to_string());
+        map.insert("7".to_string(), "Betweeen 120 000 km. and 150 000 km.".to_string());
+        map.insert("10".to_string(), "Over 150 000 km.".to_string());
+        map
+    };
     pub static ref CC_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
@@ -86,10 +98,7 @@ lazy_static! {
     };
     pub static ref DISCOUNT_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
-        map.insert("-25".to_string(), "Very High Price(-25%)".to_string());
-        map.insert("-10".to_string(), "High Price(-10%)".to_string());
-        map.insert("-5".to_string(), "Fair Price (-5%)".to_string());
+        map.insert("0".to_string(), "0 %".to_string());
         map.insert("5".to_string(), "5%".to_string());
         map.insert("10".to_string(), "10%".to_string());
         map.insert("15".to_string(), "15%".to_string());
@@ -100,25 +109,14 @@ lazy_static! {
     pub static ref SAVE_DIFF_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
         map.insert("0".to_string(), "Any".to_string());
-        map.insert(
-            "-20000".to_string(),
-            "Very High Price(€ -20, 000)".to_string(),
-        );
-        map.insert(
-            "-10000".to_string(),
-            "Very High Price(€-10, 000)".to_string(),
-        );
-        map.insert("-5000".to_string(), "High Price (€ -5,000 )".to_string());
-        map.insert("-1000".to_string(), "Fair Price(€ -1000)".to_string());
-        map.insert("1000".to_string(), "Fair Price(€ 1, 000)".to_string());
-        map.insert("1500".to_string(), "€ 1,5000".to_string());
+        map.insert("1500".to_string(), "€ 1,500".to_string());
         map.insert("2500".to_string(), "€ 2,500".to_string());
-        map.insert("4000".to_string(), "€ 4, 000".to_string());
+        map.insert("4000".to_string(), "€ 4,000".to_string());
         map.insert("7500".to_string(), "€ 7,500".to_string());
-        map.insert("10000".to_string(), "€ 10, 000".to_string());
-        map.insert("15000".to_string(), "€ 15, 000".to_string());
-        map.insert("20000".to_string(), "€ 20, 000".to_string());
-        map.insert("50000".to_string(), "€ 50, 000".to_string());
+        map.insert("10000".to_string(), "€ 10,000".to_string());
+        map.insert("15000".to_string(), "€ 15,000".to_string());
+        map.insert("20000".to_string(), "€ 20,000".to_string());
+        map.insert("50000".to_string(), "€ 50,000".to_string());
         map
     };
     pub static ref PUBLISHED_ON_FILTER: BTreeMap<String, String> = {
@@ -132,15 +130,15 @@ lazy_static! {
         let two_weeks_ago = today - Duration::weeks(2);
         let year_ago = today - Duration::days(365);
 
-        let mut date_vec = Vec::new();
+        let mut date_vec = vec![(today, "Today".to_string()),
+            (yesterday, "Yesterday".to_string()),
+            (three_days_ago, "3 days ago".to_string()),
+            (five_days_ago, "5 days ago".to_string()),
+            (week_ago, "1 week ago".to_string()),
+            (two_weeks_ago, "2 weeks ago".to_string()),
+            (year_ago, "More than 2 weeks....".to_string())];
 
-        date_vec.push((today, "Today".to_string()));
-        date_vec.push((yesterday, "Yesterday".to_string()));
-        date_vec.push((three_days_ago, "3 days ago".to_string()));
-        date_vec.push((five_days_ago, "5 days ago".to_string()));
-        date_vec.push((week_ago, "1 week ago".to_string()));
-        date_vec.push((two_weeks_ago, "2 weeks ago".to_string()));
-        date_vec.push((year_ago, "More than 2 weeks....".to_string()));
+
 
         // Sort the vector in descending order based on the date
         date_vec.sort_by(|a, b| b.0.cmp(&a.0));
@@ -209,6 +207,7 @@ pub fn select(filter: &str, df: &LazyFrame) -> HashMap<String, String> {
     }
     let btreemap = match filter.to_lowercase().as_str() {
         "mileage" => MILEAGE_FILTER.clone(),
+        "mileage_status" => MILEAGE_STATUS_FILTER.clone(),
         "power" => POWER_FILTER.clone(),
         "make" => unique_values(df, filter),
         "engine" => unique_values(df, filter),
@@ -217,8 +216,10 @@ pub fn select(filter: &str, df: &LazyFrame) -> HashMap<String, String> {
         "estimated_price" => PRICE_FILTER.clone(),
         "year" => YEAR_FILTER.clone(),
         "discount" => DISCOUNT_FILTER.clone(),
-        "created_on" => PUBLISHED_ON_FILTER.clone(),
-        "save_diff" => SAVE_DIFF_FILTER.clone(),
+        "increase" => DISCOUNT_FILTER.clone(),
+        "createdon" => PUBLISHED_ON_FILTER.clone(),
+        "savediff" => SAVE_DIFF_FILTER.clone(),
+        "overcharge" => SAVE_DIFF_FILTER.clone(),
         "cc" => CC_FILTER.clone(),
         "source" => unique_values(df, filter),
         "group_by" => GROUP_BY_FILTER.clone(),
@@ -226,7 +227,7 @@ pub fn select(filter: &str, df: &LazyFrame) -> HashMap<String, String> {
         "asc" => ASC_FILTER.clone(),
         _ => BTreeMap::new(),
     };
-    if filter == "created_on" {
+    if filter == "createdOn" {
         let mut sorted_vec: Vec<_> = btreemap.into_iter().collect();
         sorted_vec.sort_by(|a: &(String, String), b| b.0.cmp(&a.0));
         let mut sorted_map = HashMap::new();

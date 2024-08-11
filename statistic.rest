@@ -47,3 +47,29 @@ Accept: application/json
 }
 
 ###
+
+###
+POST https://localhost:3000/statistic
+Content-Type: application/json
+Accept: application/json
+
+{
+  "yearFrom": 2010,
+  "yearTo": 2020,
+  "ccFrom": null,
+  "ccTo": null,
+  "group": [
+    "make"
+  ],
+  "aggregators": [
+    "count"
+  ],
+  "order": [
+    {
+      "column": "make",
+      "asc": true
+    }
+  ],
+  "stat_column": "price_in_eur",
+  "estimated_price": 0
+}

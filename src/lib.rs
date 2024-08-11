@@ -8,14 +8,11 @@ use std::{
 use lazy_static::lazy_static;
 use log::info;
 use polars::{
-    lazy::{
-        dsl::{col, lit, when},
-        frame::{LazyCsvReader, LazyFileListReader, LazyFrame},
-    },
+    lazy::frame::{LazyCsvReader, LazyFileListReader, LazyFrame},
     prelude::Schema,
 };
 
-pub const VEHICLE_DATA_VIEW_FILE: &str = "./resources/VehicleDataView.csv";
+pub const VEHICLE_DATA_VIEW_FILE: &str = "./resources/Vehicles.csv";
 pub const STAT_PRICE_DATA_FILE: &str = "./resources/Prices.csv";
 
 lazy_static! {
@@ -53,7 +50,7 @@ lazy_static! {
         Arc::new(schema)
     };
 
-    pub static ref STAT_PRICE_SCHEMA: Arc<Schema> = {
+    pub static ref PRICES_SCHEMA: Arc<Schema> = {
         let mut schema = Schema::new();
         schema.with_column("make".into(), polars::datatypes::DataType::String);
         schema.with_column("model".into(), polars::datatypes::DataType::String);
@@ -63,12 +60,14 @@ lazy_static! {
         schema.with_column("power".into(), polars::datatypes::DataType::Int32);
         schema.with_column("mileage".into(), polars::datatypes::DataType::Int32);
         schema.with_column("cc".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("currency".into(), polars::datatypes::DataType::String);
-        schema.with_column("price".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("estimated_price".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("mileage_breakdown".into(), polars::datatypes::DataType::String);
+        schema.with_column("power_breakdown".into(), polars::datatypes::DataType::String);
         schema.with_column("price_in_eur".into(), polars::datatypes::DataType::Int32);
         schema.with_column("estimated_price_in_eur".into(), polars::datatypes::DataType::Int32);
-
+        schema.with_column("save_diff_in_eur".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("extra_charge_in_eur".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("discount".into(), polars::datatypes::DataType::Float32);
+        schema.with_column("increase".into(), polars::datatypes::DataType::Float32);
         Arc::new(schema)
     };
 
@@ -93,23 +92,13 @@ lazy_static! {
     pub static ref STAT_DATA: polars::prelude::LazyFrame = {
         let path = PathBuf::from(STAT_PRICE_DATA_FILE);
         let param = Arc::from(vec![path].into_boxed_slice());
-        let lf = LazyCsvReader::new(STAT_PRICE_DATA_FILE)
+        LazyCsvReader::new(STAT_PRICE_DATA_FILE)
             .with_paths(param)
             .with_try_parse_dates(true)
             .with_separator(b';')
-            .with_schema(Some(STAT_PRICE_SCHEMA.clone()))
+            .with_schema(Some(PRICES_SCHEMA.clone()))
             .finish()
-            .unwrap();
-        let discount = ((lit(100) *
-            (col("estimated_price") - col("price")).cast(polars::datatypes::DataType::Float64))
-            / col("estimated_price").cast(polars::datatypes::DataType::Float64))
-            .cast(polars::datatypes::DataType::Int32);
-        lf
-            .with_column((col("estimated_price") - col("price")).alias("save_diff"))
-                .with_column(when(col("estimated_price") == lit(0))
-                    .then(lit(-1).cast(polars::datatypes::DataType::Int32))
-                   .otherwise(discount).alias("discount"))
-
+            .unwrap()
     };
 
     pub static ref HIDDEN_COLUMNS: Vec<String> = vec![

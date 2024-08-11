@@ -396,6 +396,20 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
 
         meta.push(metadata.clone());
 
+        if cv.name().contains("mileage_breakdown") {
+            let values = cv
+                .cast(&DataType::Int64)
+                .unwrap()
+                .i64()
+                .unwrap()
+                .to_vec()
+                .iter()
+                .map(|v| json!(v))
+                .collect::<Vec<_>>();
+            json.insert(cv.name().to_owned(), json!(values));
+            continue;
+        }
+
         let values = if cv.dtype() == &DataType::Int32 {
             let values = cv.i32().unwrap().to_vec();
             json!(values)

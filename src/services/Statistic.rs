@@ -61,9 +61,12 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
     // Group by the required columns and calculate the required statistics
 
     let filterConditions = to_predicate(search.clone());
+    //save_diff;extra_charge;discount;increase;price_in_eur;estimated_price_in_eur;safe_diff_in_eur;extra_charge_in_eur;equipment;url;created_on;updated_on
 
     let filtered = df
         .with_columns(&[
+            col("source"),
+            col("title"),
             col("make"),
             col("model"),
             col("year"),
@@ -76,12 +79,20 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
             col("price"),
             col("estimated_price"),
             col("discount"),
+            col("increase"),
             col("save_diff"),
+            col("extra_charge"),
             col("price_in_eur"),
             col("estimated_price_in_eur"),
+            col("safe_diff_in_eur"),
+            col("extra_charge_in_eur"),
+            col("equipment"),
+            col("url"),
+            col("created_on"),
+            col("updated_on"),
         ])
         .filter(filterConditions);
-    let result = if search.order.len() > 0 {
+    let result = if !search.order.is_empty() {
         let mut columns = Vec::new();
         let mut orders = Vec::new();
 
@@ -102,9 +113,7 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
         filtered.collect().unwrap()
     };
 
-    let json_vec = to_generic_json(&result);
-
-    json_vec
+    to_generic_json(&result)
 }
 
 pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Value> {
@@ -126,15 +135,19 @@ pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Valu
             col("power"),
             col("mileage"),
             col("cc"),
-            col("price"),
-            col("estimated_price"),
+            col("mileage_breakdown"),
+            col("power_breakdown"),
             col("price_in_eur"),
             col("estimated_price_in_eur"),
+            col("save_diff_in_eur"),
+            col("extra_charge_in_eur"),
+            col("discount"),
+            col("increase"),
         ])
         .filter(filterConditions)
         .group_by(by.as_slice())
         .agg(&aggregators);
-    let result = if search.order.len() > 0 {
+    let result = if !search.order.is_empty() {
         let mut columns = Vec::new();
         let mut orders = Vec::new();
 
@@ -155,9 +168,7 @@ pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Valu
         filtered.collect().unwrap()
     };
 
-    let json_vec = to_generic_json(&result);
-
-    json_vec
+    to_generic_json(&result)
 }
 
 fn to_aggregator(aggregators: Vec<String>, column: &str) -> Vec<Expr> {
@@ -209,6 +220,7 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     let mut predicates = vec![];
 
     if let Some(search) = search.search {
+        info!("search: {:?}", search);
         let mut search_filter = HashMap::new();
         search_filter.insert("title".to_string(), search.clone());
         search_filter.insert("equipment".to_string(), search.clone());
@@ -221,6 +233,7 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(make) = search.make {
+        info!("Makes: {:?}", make);
         predicates.push(col("make").eq(lit(make)));
     }
 
@@ -244,34 +257,43 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(gearbox) = search.gearbox {
+        info!("gearbox: {:?}", gearbox);
         predicates.push(col("gearbox").eq(lit(gearbox)));
     }
 
     if let Some(estimated_price) = search.estimated_price {
-        predicates.push(col("estimated_price").gt(lit(estimated_price)));
+        predicates.push(col("estimated_price_in_eur").gt(lit(estimated_price)));
     }
 
     if let Some(yearFrom) = search.year {
+        info!("Year: {:?}", yearFrom);
         predicates.push(col("year").gt_eq(lit(yearFrom)));
     } else {
         if let Some(yearFrom) = search.yearFrom {
+            info!("Year from: {:?}", yearFrom);
             predicates.push(col("year").gt_eq(lit(yearFrom)));
         }
         if let Some(yearTo) = search.yearTo {
+            info!("Year To: {:?}", yearTo);
             predicates.push(col("year").lt_eq(lit(yearTo)));
         }
     }
     if let Some(discount) = search.discount {
+        info!("Discount: {:?}", discount);
         predicates.push(col("discount").gt_eq(lit(discount)));
     }
 
     if let Some(saveDifference) = search.saveDifference {
-        predicates.push(col("save_diff").gt_eq(lit(saveDifference)));
+        info!("Save Difference: {:?}", saveDifference);
+        predicates.push(col("save_diff_in_eur").gt_eq(lit(saveDifference)));
     }
 
     if let Some(power) = search.power {
+        info!("Power: {:?}", power);
         predicates.push(col("power").eq(lit(power)));
     } else {
+        info!("Power from: {:?}", search.powerFrom);
+        info!("Power to: {:?}", search.powerTo);
         if let Some(powerFrom) = search.powerFrom {
             predicates.push(col("power").gt_eq(lit(powerFrom)));
         }
@@ -282,6 +304,8 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     if let Some(mileage) = search.mileage {
         predicates.push(col("mileage").eq(lit(mileage)));
     } else {
+        info!("Mileage from: {:?}", search.mileageFrom);
+        info!("Mileage to: {:?}", search.mileageTo);
         if let Some(mileageFrom) = search.mileageFrom {
             predicates.push(col("mileage").gt_eq(lit(mileageFrom)));
         }
@@ -291,12 +315,15 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(cc) = search.cc {
+        info!("CC: {:?}", cc);
         predicates.push(col("cc").eq(lit(cc)));
     } else {
         if let Some(ccFrom) = search.ccFrom {
+            info!("CC from: {:?}", search.ccFrom);
             predicates.push(col("cc").gt_eq(lit(ccFrom)));
         }
         if let Some(ccTo) = search.ccTo {
+            info!("CC to: {:?}", search.ccTo);
             predicates.push(col("cc").lt_eq(lit(ccTo)));
         }
     }
@@ -305,6 +332,7 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
         .into_iter()
         .reduce(|acc, pred| acc.and(pred))
         .unwrap();
+    info!("Predicates: {:?}", combined_predicates);
     combined_predicates
 }
 
@@ -316,11 +344,58 @@ mod test_stat {
     };
 
     use log::info;
+    use polars::prelude::{all, col, lit};
 
     use crate::{
         configure_log4rs,
         services::Statistic::{stat_distribution, Order, StatisticSearchPayload},
     };
+
+    #[test]
+    fn test_load_data() {
+        configure_log4rs("resources/log4rs.yml");
+        let df = super::STAT_DATA.clone();
+        let result = df
+            .clone()
+            .select(&[
+                col("make"),
+                col("model"),
+                col("year"),
+                col("engine"),
+                col("gearbox"),
+                col("power"),
+                col("mileage"),
+                col("cc"),
+                col("mileage_breakdown"),
+                col("power_breakdown"),
+                col("price_in_eur"),
+                col("estimated_price_in_eur"),
+                col("save_diff_in_eur"),
+                col("extra_charge_in_eur"),
+                col("discount"),
+                col("increase"),
+            ])
+            .collect()
+            .unwrap();
+
+        assert_eq!(result.height(), 222441);
+
+        // let search = StatisticSearchPayload {
+        //     make: Some("Audi".to_string()),
+        //     group: vec![],
+        //     aggregators: vec![],
+        //     order: vec![],
+        //     ..Default::default()
+        // };
+        // let filter = super::to_predicate(search);
+        let filtered = df
+            .select([all()])
+            .filter(col("make").eq(lit("Audi")))
+            .collect()
+            .unwrap();
+        info!("{:?}", filtered.head(Some(10)));
+        assert_eq!(filtered.height(), 22197);
+    }
 
     #[test]
     fn test_stat_distribution() {
@@ -340,7 +415,7 @@ mod test_stat {
             "min".to_string(),
             "max".to_string(),
         ];
-        let column = "save_diff".to_string();
+        let column = "price_in_eur".to_string();
         let columns = functions
             .iter()
             .map(|f| format!("{}_{}", column, f))
@@ -473,7 +548,7 @@ mod test_stat {
         let message: String = fs::read_to_string("resources/payload.json").unwrap();
         let payload = serde_json::from_str::<StatisticSearchPayload>(&message).unwrap();
         let functions = payload.aggregators.clone();
-        let column = "save_diff".to_string();
+        let column = "price_in_eur".to_string();
         let columns = functions
             .iter()
             .map(|f| format!("{}_{}", column, f))
