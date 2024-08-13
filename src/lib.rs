@@ -72,7 +72,7 @@ lazy_static! {
     };
 
     // };
-    pub static ref ESTIMATE_PRICE_DATA: polars::prelude::LazyFrame = {
+    pub static ref VEHICLES_DATA: polars::prelude::LazyFrame = {
         INIT_LOGGER.call_once(|| {
             // Initialize logging or any other one-time setup here
             info!("SUCCESS: Loggers are configured with dir: _log/*");
@@ -126,6 +126,6 @@ impl Payload {
         //     _ => &PRICE_DATA,
         // }
 
-        &ESTIMATE_PRICE_DATA
+        &VEHICLES_DATA
     }
 }

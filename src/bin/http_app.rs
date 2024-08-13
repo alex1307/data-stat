@@ -24,7 +24,7 @@ use data_statistics::{
         PriceStatistic::{apply_filter, FilterPayload},
         Statistic::{search, stat_distribution, StatisticSearchPayload},
     },
-    Payload, ESTIMATE_PRICE_DATA,
+    Payload, VEHICLES_DATA,
 };
 use log::info;
 
@@ -155,7 +155,7 @@ async fn models(
     info!("Host: {:?}", hostname);
     info!("Make: {:?}", make);
     let map = if source.is_empty() {
-        data_statistics::services::EnumService::models(&make, &ESTIMATE_PRICE_DATA)
+        data_statistics::services::EnumService::models(&make, &VEHICLES_DATA)
     } else {
         let source = source.get("source");
         let found = if let Some(source) = source {
@@ -183,7 +183,7 @@ async fn enums(
     info!("Host: {:?}", hostname);
     let map = if source.is_empty() {
         info!("source is empty: Name: {:?}", name);
-        data_statistics::services::EnumService::select(&name, &ESTIMATE_PRICE_DATA)
+        data_statistics::services::EnumService::select(&name, &VEHICLES_DATA)
     } else {
         let source = source.get("source");
         let found = if let Some(src) = source { src } else { "" };

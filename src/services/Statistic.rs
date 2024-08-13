@@ -8,7 +8,7 @@ use polars::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{ESTIMATE_PRICE_DATA, STAT_DATA};
+use crate::{STAT_DATA, VEHICLES_DATA};
 
 use super::PriceStatistic::{to_generic_json, to_like_predicate};
 
@@ -51,12 +51,12 @@ pub struct StatisticSearchPayload {
     group: Vec<String>,
     aggregators: Vec<String>,
     order: Vec<Order>,
-    stat_column: String,
+    stat_column: Option<String>,
     estimated_price: Option<i32>,
 }
 
 pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
-    let df = ESTIMATE_PRICE_DATA.clone();
+    let df = VEHICLES_DATA.clone();
 
     // Group by the required columns and calculate the required statistics
 
@@ -98,14 +98,16 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
 
         for sort in search.order.iter() {
             columns.push(sort.column.clone());
-            orders.push(sort.asc);
+            orders.push(!sort.asc);
         }
-        info!("Columns: {:?}", columns);
-        info!("Orders: {:?}", orders);
+        info!("* Columns: {:?}", columns);
+        info!("* Orders: {:?}", orders);
         filtered
             .sort(
                 columns,
-                SortMultipleOptions::new().with_order_descending(false),
+                SortMultipleOptions::new()
+                    .with_order_descending_multi(orders)
+                    .with_nulls_last(true),
             )
             .collect()
             .unwrap()
@@ -117,13 +119,17 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
 }
 
 pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Value> {
-    let df = STAT_DATA.clone();
+    let df: LazyFrame = STAT_DATA.clone();
 
     // Group by the required columns and calculate the required statistics
     info!("Payload: {:?}", search);
     let filterConditions = to_predicate(search.clone());
     let by = search.group.iter().map(|k| col(k)).collect::<Vec<_>>();
-    let aggregators = to_aggregator(search.aggregators.clone(), &search.stat_column);
+    let stat_column = search
+        .stat_column
+        .clone()
+        .unwrap_or("price_in_eur".to_string());
+    let aggregators = to_aggregator(search.aggregators.clone(), &stat_column);
 
     let filtered = df
         .with_columns(&[
@@ -153,17 +159,14 @@ pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Valu
 
         for sort in search.order.iter() {
             columns.push(sort.column.clone());
-            orders.push(sort.asc);
+            orders.push(!sort.asc);
         }
         info!("Columns: {:?}", columns);
         info!("Orders: {:?}", orders);
-        filtered
-            .sort(
-                columns,
-                SortMultipleOptions::new().with_order_descending(false),
-            )
-            .collect()
-            .unwrap()
+        let sort = SortMultipleOptions::new()
+            .with_order_descending_multi(orders)
+            .with_nulls_last(true);
+        filtered.sort(&columns, sort).collect().unwrap()
     } else {
         filtered.collect().unwrap()
     };
@@ -248,12 +251,14 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
             let p = col("engine").eq(lit(v.clone()));
             engine_predicates.push(p);
         }
-        let mut predicate = engine_predicates[0].clone();
-        for p in engine_predicates.iter().skip(1) {
-            predicate = predicate.or(p.clone());
-        }
+        if !engine_predicates.is_empty() {
+            let mut predicate = engine_predicates[0].clone();
+            for p in engine_predicates.iter().skip(1) {
+                predicate = predicate.or(p.clone());
+            }
 
-        predicates.push(predicate);
+            predicates.push(predicate);
+        }
     }
 
     if let Some(gearbox) = search.gearbox {
@@ -437,7 +442,7 @@ mod test_stat {
                 asc: true,
             }],
             estimated_price: Some(0),
-            stat_column: column,
+            stat_column: Some(column),
             ..Default::default()
         };
 

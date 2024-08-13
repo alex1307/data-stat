@@ -456,7 +456,7 @@ mod tests {
         chunked_array::ops::SortMultipleOptions, datatypes::DataType, lazy::frame::IntoLazy,
     };
 
-    use crate::ESTIMATE_PRICE_DATA;
+    use crate::VEHICLES_DATA;
 
     use super::*;
 
@@ -472,7 +472,7 @@ mod tests {
         let predicate1 = to_predicate(make_filter).unwrap();
         let predicate2 = to_predicate(year_eq_filter).unwrap();
         let predicate = predicate1.and(predicate2);
-        let df = ESTIMATE_PRICE_DATA
+        let df = VEHICLES_DATA
             .clone()
             .lazy()
             .filter(predicate)
@@ -496,7 +496,7 @@ mod tests {
         let predicate2 = to_predicate(year_eq_filter).unwrap();
         let predicate3 = to_predicate(model_like_filter).unwrap();
         let predicate = predicate1.and(predicate2).and(predicate3);
-        let df = ESTIMATE_PRICE_DATA
+        let df = VEHICLES_DATA
             .clone()
             .lazy()
             .select([
@@ -545,7 +545,7 @@ mod tests {
             "filter_f64": []
         }"#;
         let payload: FilterPayload = serde_json::from_str(json).unwrap();
-        let df = apply_filter(&ESTIMATE_PRICE_DATA, payload);
+        let df = apply_filter(&VEHICLES_DATA, payload);
         let row_count = df.height();
         info!("Row count: {}", row_count);
 
@@ -712,7 +712,7 @@ mod tests {
             "filter_f64": []
         }"#;
         let payload: FilterPayload = serde_json::from_str(json).unwrap();
-        let df = apply_filter(&ESTIMATE_PRICE_DATA, payload);
+        let df = apply_filter(&VEHICLES_DATA, payload);
         let row_count = df.height();
         info!("Row count: {}", row_count);
     }
@@ -725,7 +725,7 @@ mod tests {
 
         // let predicate1 = to_predicate(make_filter).unwrap();
         let columns = vec!["key".to_string(), "value".to_string()];
-        let unique = &ESTIMATE_PRICE_DATA
+        let unique = &VEHICLES_DATA
             .clone()
             .lazy()
             .select([
