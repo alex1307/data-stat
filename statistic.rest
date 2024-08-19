@@ -103,3 +103,21 @@ Accept: application/json
     "aggregators": [],
     "group": []
 }
+
+###
+POST https://localhost:3000/calculator
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "model": "A4",
+    "year": 2018,
+    "engine": ["Diesel", "Petrol"],
+    "mileage": 55000,
+    "power": 150,
+    "aggregators": [],
+    "group": [],
+    "order": [],
+    "stat_column": "price_in_eur"
+}

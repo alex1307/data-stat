@@ -22,37 +22,37 @@ pub struct Order {
 }
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct StatisticSearchPayload {
-    search: Option<String>,
-    make: Option<String>,
-    model: Option<String>,
+    pub search: Option<String>,
+    pub(crate) make: Option<String>,
+    pub(crate) model: Option<String>,
 
-    engine: Option<Vec<String>>,
-    gearbox: Option<String>,
+    pub(crate) engine: Option<Vec<String>>,
+    pub(crate) gearbox: Option<String>,
 
-    yearFrom: Option<i32>,
-    yearTo: Option<i32>,
-    year: Option<i32>,
+    pub(crate) yearFrom: Option<i32>,
+    pub(crate) yearTo: Option<i32>,
+    pub(crate) year: Option<i32>,
 
-    powerFrom: Option<i32>,
-    powerTo: Option<i32>,
-    power: Option<i32>,
+    pub powerFrom: Option<i32>,
+    pub powerTo: Option<i32>,
+    pub power: Option<i32>,
 
-    mileageFrom: Option<i32>,
-    mileageTo: Option<i32>,
-    mileage: Option<i32>,
+    pub mileageFrom: Option<i32>,
+    pub mileageTo: Option<i32>,
+    pub mileage: Option<i32>,
 
-    ccFrom: Option<i32>,
-    ccTo: Option<i32>,
-    cc: Option<i32>,
+    pub ccFrom: Option<i32>,
+    pub ccTo: Option<i32>,
+    pub cc: Option<i32>,
 
-    saveDifference: Option<i32>,
-    discount: Option<i32>,
+    pub(crate) saveDifference: Option<i32>,
+    pub(crate) discount: Option<i32>,
 
-    group: Vec<String>,
-    aggregators: Vec<String>,
-    order: Vec<Order>,
-    stat_column: Option<String>,
-    estimated_price: Option<i32>,
+    pub(crate) group: Vec<String>,
+    pub(crate) aggregators: Vec<String>,
+    pub(crate) order: Vec<Order>,
+    pub(crate) stat_column: Option<String>,
+    pub(crate) estimated_price: Option<i32>,
 }
 
 pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
@@ -225,10 +225,14 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     if let Some(search) = search.search {
         info!("search: {:?}", search);
         let mut search_filter = HashMap::new();
-        search_filter.insert("title".to_string(), search.clone());
-        search_filter.insert("equipment".to_string(), search.clone());
-        search_filter.insert("dealer".to_string(), search.clone());
-        search_filter.insert("model".to_string(), search.clone());
+        search_filter.insert(
+            "title".to_string().to_lowercase(),
+            search.clone().to_lowercase(),
+        );
+        search_filter.insert(
+            "equipment".to_string().to_lowercase(),
+            search.clone().to_lowercase(),
+        );
         let predicate = to_like_predicate(search_filter, true);
         if let Some(p) = predicate {
             predicates.push(p);
@@ -236,7 +240,6 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(make) = search.make {
-        info!("Makes: {:?}", make);
         predicates.push(col("make").eq(lit(make)));
     }
 
@@ -245,7 +248,6 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(engine) = search.engine {
-        info!("Engines: {:?}", engine);
         let mut engine_predicates = vec![];
         for v in engine.iter() {
             let p = col("engine").eq(lit(v.clone()));
@@ -262,7 +264,6 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(gearbox) = search.gearbox {
-        info!("gearbox: {:?}", gearbox);
         predicates.push(col("gearbox").eq(lit(gearbox)));
     }
 
@@ -271,34 +272,26 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(yearFrom) = search.year {
-        info!("Year: {:?}", yearFrom);
-        predicates.push(col("year").gt_eq(lit(yearFrom)));
+        predicates.push(col("year").eq(lit(yearFrom)));
     } else {
         if let Some(yearFrom) = search.yearFrom {
-            info!("Year from: {:?}", yearFrom);
             predicates.push(col("year").gt_eq(lit(yearFrom)));
         }
         if let Some(yearTo) = search.yearTo {
-            info!("Year To: {:?}", yearTo);
             predicates.push(col("year").lt_eq(lit(yearTo)));
         }
     }
     if let Some(discount) = search.discount {
-        info!("Discount: {:?}", discount);
         predicates.push(col("discount").gt_eq(lit(discount)));
     }
 
     if let Some(saveDifference) = search.saveDifference {
-        info!("Save Difference: {:?}", saveDifference);
         predicates.push(col("save_diff_in_eur").gt_eq(lit(saveDifference)));
     }
 
     if let Some(power) = search.power {
-        info!("Power: {:?}", power);
         predicates.push(col("power").eq(lit(power)));
     } else {
-        info!("Power from: {:?}", search.powerFrom);
-        info!("Power to: {:?}", search.powerTo);
         if let Some(powerFrom) = search.powerFrom {
             predicates.push(col("power").gt_eq(lit(powerFrom)));
         }
@@ -309,8 +302,6 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     if let Some(mileage) = search.mileage {
         predicates.push(col("mileage").eq(lit(mileage)));
     } else {
-        info!("Mileage from: {:?}", search.mileageFrom);
-        info!("Mileage to: {:?}", search.mileageTo);
         if let Some(mileageFrom) = search.mileageFrom {
             predicates.push(col("mileage").gt_eq(lit(mileageFrom)));
         }
@@ -320,15 +311,12 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
     }
 
     if let Some(cc) = search.cc {
-        info!("CC: {:?}", cc);
         predicates.push(col("cc").eq(lit(cc)));
     } else {
         if let Some(ccFrom) = search.ccFrom {
-            info!("CC from: {:?}", search.ccFrom);
             predicates.push(col("cc").gt_eq(lit(ccFrom)));
         }
         if let Some(ccTo) = search.ccTo {
-            info!("CC to: {:?}", search.ccTo);
             predicates.push(col("cc").lt_eq(lit(ccTo)));
         }
     }
