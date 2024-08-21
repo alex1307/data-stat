@@ -22,7 +22,7 @@ use data_statistics::{
     configure_log4rs,
     services::{
         PriceCalculator::calculateStatistic,
-        PriceStatistic::{apply_filter, FilterPayload},
+        PriceStatistic::FilterPayload,
         Statistic::{search, stat_distribution, StatisticSearchPayload},
     },
     Payload, VEHICLES_DATA,
@@ -30,7 +30,7 @@ use data_statistics::{
 use log::info;
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+
 use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Parser, Debug)]
@@ -73,8 +73,7 @@ async fn main() {
         // `POST /users` goes to `create_user`
         .route("/users", post(create_user))
         .route("/filter", post(filter))
-        .route("/data", post(data))
-        .route("/json", post(json))
+        .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
         .route("/calculator", post(calculate))
         .route("/enums/:name", get(enums))
@@ -127,17 +126,8 @@ async fn filter(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
     (StatusCode::CREATED, {})
 }
 
-async fn data(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
-    let dataframe = Payload {
-        source: payload.source.clone().unwrap_or("".to_string()),
-    };
-    let df = apply_filter(dataframe.get_dataframe(), payload);
-    let json = json!({"data": df.to_string()});
-
-    (StatusCode::OK, Json(json))
-}
-
-async fn json(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+async fn search_for_deals(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    info!("Payload: {:?}", payload);
     let response = search(payload.clone());
     (StatusCode::OK, Json(response))
 }

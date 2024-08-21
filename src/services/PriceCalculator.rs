@@ -171,7 +171,6 @@ fn getCount(
     reduced.power = None;
 
     let filterConditions = to_predicate(reduced.clone());
-    //save_diff;extra_charge;discount;increase;price_in_eur;estimated_price_in_eur;safe_diff_in_eur;extra_charge_in_eur;equipment;url;created_on;updated_on
     let filtered = vehicles
         .clone()
         .filter(filterConditions.clone())

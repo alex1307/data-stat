@@ -16,3 +16,4 @@ Cargo.lock
 .vscode/
 .vscode/*
 .vscode
+_log

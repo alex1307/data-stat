@@ -45,8 +45,14 @@ pub struct StatisticSearchPayload {
     pub ccTo: Option<i32>,
     pub cc: Option<i32>,
 
-    pub(crate) saveDifference: Option<i32>,
-    pub(crate) discount: Option<i32>,
+    pub(crate) saveDiffFrom: Option<i32>,
+    pub(crate) saveDiffTo: Option<i32>,
+
+    pub(crate) discountFrom: Option<i32>,
+    pub(crate) discountTo: Option<i32>,
+
+    pub(crate) createdOnFrom: Option<i32>,
+    pub(crate) createdOnTo: Option<i32>,
 
     pub(crate) group: Vec<String>,
     pub(crate) aggregators: Vec<String>,
@@ -61,7 +67,6 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
     // Group by the required columns and calculate the required statistics
 
     let filterConditions = to_predicate(search.clone());
-    //save_diff;extra_charge;discount;increase;price_in_eur;estimated_price_in_eur;safe_diff_in_eur;extra_charge_in_eur;equipment;url;created_on;updated_on
 
     let filtered = df
         .with_columns(&[
@@ -84,7 +89,7 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
             col("extra_charge"),
             col("price_in_eur"),
             col("estimated_price_in_eur"),
-            col("safe_diff_in_eur"),
+            col("save_diff_in_eur"),
             col("extra_charge_in_eur"),
             col("equipment"),
             col("url"),
@@ -281,12 +286,18 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
             predicates.push(col("year").lt_eq(lit(yearTo)));
         }
     }
-    if let Some(discount) = search.discount {
+    if let Some(discount) = search.discountFrom {
         predicates.push(col("discount").gt_eq(lit(discount)));
     }
+    if let Some(discount) = search.discountTo {
+        predicates.push(col("discount").lt_eq(lit(discount)));
+    }
 
-    if let Some(saveDifference) = search.saveDifference {
+    if let Some(saveDifference) = search.saveDiffFrom {
         predicates.push(col("save_diff_in_eur").gt_eq(lit(saveDifference)));
+    }
+    if let Some(saveDifference) = search.saveDiffTo {
+        predicates.push(col("save_diff_in_eur").lt_eq(lit(saveDifference)));
     }
 
     if let Some(power) = search.power {

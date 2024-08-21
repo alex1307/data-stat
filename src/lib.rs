@@ -41,7 +41,7 @@ lazy_static! {
         schema.with_column("increase".into(), polars::datatypes::DataType::Float32);
         schema.with_column("price_in_eur".into(), polars::datatypes::DataType::Int32);
         schema.with_column("estimated_price_in_eur".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("safe_diff_in_eur".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("save_diff_in_eur".into(), polars::datatypes::DataType::Int32);
         schema.with_column("extra_charge_in_eur".into(), polars::datatypes::DataType::Int32);
         schema.with_column("equipment".into(), polars::datatypes::DataType::String);
         schema.with_column("url".into(), polars::datatypes::DataType::String);
