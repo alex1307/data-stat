@@ -22,14 +22,11 @@ use data_statistics::{
     configure_log4rs,
     services::{
         PriceCalculator::calculateStatistic,
-        PriceStatistic::FilterPayload,
         Statistic::{search, stat_distribution, StatisticSearchPayload},
     },
     Payload, VEHICLES_DATA,
 };
 use log::info;
-
-use serde::{Deserialize, Serialize};
 
 use tower_http::cors::{Any, CorsLayer};
 
@@ -71,8 +68,6 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         // `POST /users` goes to `create_user`
-        .route("/users", post(create_user))
-        .route("/filter", post(filter))
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
         .route("/calculator", post(calculate))
@@ -98,32 +93,6 @@ async fn main() {
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
-}
-
-async fn filter(Json(payload): Json<FilterPayload>) -> impl IntoResponse {
-    tracing::info!("Filter: {:?}", payload);
-    // insert your application logic here
-    if let Some(aggregate) = payload.aggregate {
-        tracing::info!("Aggregate: {:?}", aggregate);
-    }
-
-    if !payload.sort.is_empty() {
-        tracing::info!("Sort: {:?}", payload.sort);
-    }
-
-    if !&payload.filter_string.is_empty() {
-        tracing::info!("Filter string: {:?}", payload.filter_string);
-    }
-
-    if !&payload.filter_i32.is_empty() {
-        tracing::info!("Filter i32: {:?}", payload.filter_i32);
-    }
-
-    if !&payload.filter_f64.is_empty() {
-        tracing::info!("Filter f64: {:?}", payload.filter_f64);
-    }
-
-    (StatusCode::CREATED, {})
 }
 
 async fn search_for_deals(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
@@ -193,33 +162,4 @@ async fn enums(
     };
 
     (StatusCode::OK, Json(map))
-}
-
-async fn create_user(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
-    Json(payload): Json<CreateUser>,
-) -> impl IntoResponse {
-    // insert your application logic here
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
-
-    // this will be converted into a JSON response
-    // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
-}
-
-// the input to our `create_user` handler
-#[derive(Deserialize)]
-struct CreateUser {
-    username: String,
-}
-
-// the output to our `create_user` handler
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
 }

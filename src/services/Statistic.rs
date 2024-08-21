@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{NaiveDate, TimeDelta, Utc};
 use log::info;
 use polars::{
     lazy::dsl::{col, lit, Expr},
@@ -332,12 +333,27 @@ pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
         }
     }
 
+    if let Some(createdOnFrom) = search.createdOnFrom {
+        let date = convert_days_to_date(createdOnFrom as i64);
+        predicates.push(col("created_on").gt_eq(lit(date)));
+    }
+
+    if let Some(createdOnTo) = search.createdOnTo {
+        let date = convert_days_to_date(createdOnTo as i64);
+        predicates.push(col("created_on").lt_eq(lit(date)));
+    }
+
     let combined_predicates = predicates
         .into_iter()
         .reduce(|acc, pred| acc.and(pred))
         .unwrap();
     info!("Predicates: {:?}", combined_predicates);
     combined_predicates
+}
+
+fn convert_days_to_date(days_ago: i64) -> NaiveDate {
+    let today = Utc::now().naive_utc().date();
+    today.checked_sub_signed(TimeDelta::days(days_ago)).unwrap()
 }
 
 #[cfg(test)]
