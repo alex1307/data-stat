@@ -11,4 +11,5 @@ scp -r src root@68.183.3.134:/vehicle-ui
 cargo run -- --cert-dir /Users/matkat/Software/ehomeho.com
 psql -U admin -d vehicles -h localhost -p 5432 -W 1234
 \copy (SELECT * FROM "views"."Vehicles") TO '/Users/matkat/Software/Vehicles.csv' with (FORMAT CSV, HEADER,DELIMITER ';')
-\copy (SELECT * FROM "views"."Prices") TO '/Users/matkat/Software/Prices.csv' with (FORMAT CSV, HEADER,DELIMITER ',');
+\copy (SELECT * FROM "views"."Prices") TO '/Users/matkat/Software/Prices.csv' with (FORMAT CSV, HEADER,DELIMITER ';');
+\copy (SELECT * FROM "views"."EstimatedPrices") TO '/Users/matkat/Software/EstimatedPrices.csv' with (FORMAT CSV, HEADER,DELIMITER ';');
