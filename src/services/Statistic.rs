@@ -189,8 +189,8 @@ fn to_aggregator(aggregators: Vec<String>, column: &str) -> Vec<Expr> {
             "max" => col(column).max(),
             "mean" => col(column).mean(),
             "median" => col(column).median(),
-            "avg" => col(column).sum() / col(column).count(),
             "sum" => col(column).sum(),
+            "avg" => col(column).sum() / col(column).count(),
             "std" => col(column).std(1),
             "rsd" => col(column).std(1) / col(column).mean(),
             "quantile_60" => col(column).quantile(
@@ -220,7 +220,7 @@ fn to_aggregator(aggregators: Vec<String>, column: &str) -> Vec<Expr> {
 
             _ => continue,
         };
-        agg.push(func.alias(&format!("{}_{}", column, aggregator)));
+        agg.push(func.alias(&aggregator));
     }
     agg
 }

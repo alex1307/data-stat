@@ -26,7 +26,6 @@ Accept: application/json
     "mean",
     "median",
     "std",
-    "avg",
     "rsd",
     "quantile_60",
     "quantile_66",
@@ -42,7 +41,7 @@ Accept: application/json
       "asc": true
     }
   ],
-  "stat_column": "price",
+  "stat_column": "price_in_eur",
   "estimated_price": 0
 }
 

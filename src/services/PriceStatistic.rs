@@ -267,18 +267,18 @@ pub fn group_by(aggregator: HashMap<String, Vec<GroupFunc>>) -> impl AsRef<[Expr
     for (c, funcs) in aggregator.iter() {
         for f in funcs.iter() {
             let agg_expr = match f {
-                GroupFunc::Min => col(c).min().alias(&format!("{}_min", c)),
-                GroupFunc::Max => col(c).max().alias(&format!("{}_max", c)),
-                GroupFunc::Sum => col(c).sum().alias(&format!("{}_sum", c)),
-                GroupFunc::Median => col(c).median().alias(&format!("{}_median", c)),
-                GroupFunc::Mean => col(c).mean().alias(&format!("{}_mean", c)),
-                GroupFunc::Count => col(c).count().alias(&format!("{}_count", c)),
+                GroupFunc::Min => col(c).min().alias("Min"),
+                GroupFunc::Max => col(c).max().alias("Max"),
+                GroupFunc::Sum => col(c).sum().alias("Sum"),
+                GroupFunc::Median => col(c).median().alias("Median"),
+                GroupFunc::Mean => col(c).mean().alias("Avg"),
+                GroupFunc::Count => col(c).count().alias("Count"),
                 GroupFunc::Quantile(p) => col(c)
                     .quantile(
                         (*p).into(),
                         polars::prelude::QuantileInterpolOptions::Nearest,
                     )
-                    .alias(&format!("{}_quantile_{}", c, p)),
+                    .alias(&format!("Q_{}", p)),
             };
             agg_exprs.push(agg_expr);
         }
@@ -378,7 +378,8 @@ pub fn apply_filter(
 pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
     let mut json = HashMap::new();
     let column_values = data.get_columns();
-    json.insert("count".to_owned(), data.height().into());
+    json.insert("itemsCount".to_owned(), data.height().into());
+    info!("Found results: {}", data.height());
     info!("Column count: {}", column_values.len());
     let mut metadata = HashMap::new();
 
