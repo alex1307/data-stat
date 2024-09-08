@@ -8,41 +8,34 @@ Content-Type: application/json
 Accept: application/json
 
 {
-  "make": "BMW",
-  "model": "330",
-  "engine": ["Petrol", "Diesel"],
-  "gearbox": null,
-  "mileageFrom": 50000,
-  "mileageTo": 80000,
-  "ccFrom": null,
-  "ccTo": null,
-  "group": [
-    "make",
-    "engine",
-    "year"
-  ],
-  "aggregators": [
-    "count",
-    "mean",
-    "median",
-    "std",
-    "rsd",
-    "quantile_60",
-    "quantile_66",
-    "quantile_75",
-    "quantile_80",
-    "quantile_90",
-    "min",
-    "max"
-  ],
-  "order": [
-    {
-      "column": "make",
-      "asc": true
-    }
-  ],
-  "stat_column": "price_in_eur",
-  "estimated_price": 0
+    "make": "Audi",
+    "model": null,
+    "year": null,
+    "engine": [
+        "Petrol"
+    ],
+    "gearbox": null,
+    "yearFrom": null,
+    "yearTo": null,
+    "powerFrom": null,
+    "powerTo": null,
+    "mileageFrom": null,
+    "mileageTo": null,
+    "ccFrom": null,
+    "ccTo": null,
+    "priceFrom": 0,
+    "priceTo": 100000,
+    "group": [
+        "make",
+        "year"
+    ],
+    "aggregators": [
+        "count",
+        "avg"
+    ],
+    "order": [],
+    "stat_column": "price_in_eur",
+    "estimated_price": null
 }
 
 ###
