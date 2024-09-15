@@ -10,7 +10,7 @@ use polars::{
         dsl::{col, lit, Expr},
         frame::LazyFrame,
     },
-    prelude::Literal,
+    prelude::{Literal, PlSmallStr},
 };
 
 use serde::{Deserialize, Serialize};
@@ -287,24 +287,24 @@ pub fn group_by(aggregator: HashMap<String, Vec<GroupFunc>>) -> impl AsRef<[Expr
 }
 
 pub fn sort(df: polars::prelude::LazyFrame, sort: Vec<SortBy>) -> polars::prelude::LazyFrame {
-    let mut columns = Vec::new();
+    let mut columns: Vec<PlSmallStr> = Vec::new();
     let mut orders = Vec::new();
 
     for sort in sort.iter() {
         match sort {
             SortBy::Ascending(col, _) => {
-                columns.push(col);
+                columns.push(col.into());
                 orders.push(false);
             }
             SortBy::Descending(col, _) => {
-                columns.push(col);
+                columns.push(col.into());
                 orders.push(true);
             }
         }
     }
 
     df.sort(
-        &columns,
+        columns,
         SortMultipleOptions::new().with_order_descending(false),
     )
 }
@@ -385,11 +385,11 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
 
     let mut meta = vec![];
     for (idx, cv) in column_values.iter().enumerate() {
-        let name = cv.name();
+        let name = cv.name().to_string();
         metadata.insert("column_name".to_owned(), json!(name));
         metadata.insert("column_index".to_owned(), json!(idx));
         metadata.insert("column_dtype".to_owned(), json!(cv.dtype().to_string()));
-        if HIDDEN_COLUMNS.iter().any(|c| c == name) {
+        if HIDDEN_COLUMNS.iter().any(|c| c == &name) {
             metadata.insert("visible".to_owned(), json!(false));
         } else {
             metadata.insert("visible".to_owned(), json!(true));
@@ -407,7 +407,7 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
                 .iter()
                 .map(|v| json!(v))
                 .collect::<Vec<_>>();
-            json.insert(cv.name().to_owned(), json!(values));
+            json.insert(cv.name().to_string(), json!(values));
             continue;
         }
 
@@ -444,7 +444,7 @@ pub fn to_generic_json(data: &DataFrame) -> HashMap<String, Value> {
                 .collect::<Vec<_>>();
             json!(values)
         };
-        json.insert(cv.name().to_owned(), values);
+        json.insert(cv.name().to_string(), values);
     }
     json.insert("metadata".to_owned(), json!(meta));
     json
@@ -607,7 +607,7 @@ mod tests {
             info!("{:?}", k);
 
             let mut final_json: FinalJson<String, i64> = FinalJson {
-                name: k.clone(),
+                name: k.to_string(),
                 axis: Vec::new(),
                 data: HashMap::new(),
             };

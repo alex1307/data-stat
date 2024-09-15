@@ -44,7 +44,7 @@ async-trait = "0.1"
 clap = { version = "4.5", features = ["derive"] }
 uuid = { version = "1.8", features = ["v4", "fast-rng", "macro-diagnostics"] }
 openssl = { version = "0.10", features = ["vendored"] }
-polars = { version = "0.42", features = [
+polars = { version = "0.43.1", features = [
     "lazy",
     "temporal",
     "describe",

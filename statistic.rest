@@ -3,7 +3,7 @@
 # Post request example
 
 ###
-POST https://localhost:3000/statistic
+POST https://ehomeho:3000/statistic
 Content-Type: application/json
 Accept: application/json
 

@@ -17,8 +17,14 @@ if [[ $1 == "--all" ]]; then
     # Execute additional commands
     echo "Building the project with cargo..."
     TARGET_CC=x86_64-linux-musl-gcc cargo build --release --target x86_64-unknown-linux-musl
-
+    
     echo "Copying the binary to the remote server..."
+ssh -i $SSH_KEY_PATH $REMOTE_USER@$REMOTE_HOST << EOF
+      cd /
+      sudo systemctl stop $SERVICE_NAME
+      exit
+EOF
+    echo "Service $SERVICE_NAME is stopped " 
     sleep 2
     scp -i $SSH_KEY_PATH -r target/x86_64-unknown-linux-musl/release/vehicle-data $REMOTE_USER@$REMOTE_HOST:/vehicle-app/
 fi

@@ -97,7 +97,8 @@ pub fn search(search: StatisticSearchPayload) -> HashMap<String, Value> {
             col("created_on"),
             col("updated_on"),
         ])
-        .filter(filterConditions);
+        .filter(filterConditions)
+        .limit(100);
     let result = if !search.order.is_empty() {
         let mut columns = Vec::new();
         let mut orders = Vec::new();

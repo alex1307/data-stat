@@ -165,3 +165,6 @@ Accept: application/json
 }
 
 ###
+# Post request example
+###
+GET https://ehomeho.com:3000/enums/make?source=estimated_price

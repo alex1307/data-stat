@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use log::info;
 use polars::{
     lazy::frame::{LazyCsvReader, LazyFileListReader, LazyFrame},
-    prelude::Schema,
+    prelude::{Field, Schema},
 };
 
 pub const VEHICLE_DATA_VIEW_FILE: &str = "./resources/Vehicles.csv";
@@ -19,9 +19,10 @@ pub const ESTIMATED_PRICES_DATA_FILE: &str = "./resources/EstimatedPrices.csv";
 lazy_static! {
     static ref INIT_LOGGER: Once = Once::new();
     pub static ref VEHICLE_DATA_VIEW_SCHEMA: Arc<Schema> = {
-        let mut schema = Schema::new();
-        schema.with_column("advert_id".into(), polars::datatypes::DataType::String);
-        schema.with_column("source".into(), polars::datatypes::DataType::String);
+        let mut schema = Schema::from_iter(vec![
+            Field::new("advert_id".into(),  polars::datatypes::DataType::String),
+            Field::new("source".into(), polars::datatypes::DataType::String),
+        ]);
         schema.with_column("title".into(), polars::datatypes::DataType::String);
         schema.with_column("make".into(), polars::datatypes::DataType::String);
         schema.with_column("model".into(), polars::datatypes::DataType::String);
@@ -52,9 +53,10 @@ lazy_static! {
     };
 
     pub static ref PRICES_SCHEMA: Arc<Schema> = {
-        let mut schema = Schema::new();
-        schema.with_column("make".into(), polars::datatypes::DataType::String);
-        schema.with_column("model".into(), polars::datatypes::DataType::String);
+        let mut schema = Schema::from_iter(vec![
+            Field::new("make".into(),  polars::datatypes::DataType::String),
+            Field::new("model".into(), polars::datatypes::DataType::String),
+        ]);
         schema.with_column("year".into(), polars::datatypes::DataType::Int32);
         schema.with_column("engine".into(), polars::datatypes::DataType::String);
         schema.with_column("gearbox".into(), polars::datatypes::DataType::String);
@@ -73,9 +75,10 @@ lazy_static! {
     };
 
     pub static ref ESTIMATED_PRICES_SCHEMA: Arc<Schema> = {
-        let mut schema = Schema::new();
-        schema.with_column("make".into(), polars::datatypes::DataType::String);
-        schema.with_column("model".into(), polars::datatypes::DataType::String);
+        let mut schema = Schema::from_iter(vec![
+            Field::new("make".into(),  polars::datatypes::DataType::String),
+            Field::new("model".into(), polars::datatypes::DataType::String),
+        ]);
         schema.with_column("title".into(), polars::datatypes::DataType::String);
         schema.with_column("equipment".into(), polars::datatypes::DataType::String);
         schema.with_column("year".into(), polars::datatypes::DataType::Int32);
