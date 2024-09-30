@@ -14,7 +14,6 @@ use polars::{
 lazy_static! {
     pub static ref MILEAGE_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
         map.insert("5000".to_string(), "5,000km".to_string());
         map.insert("10000".to_string(), "10,000km".to_string());
         map.insert("20000".to_string(), "20,000km".to_string());
@@ -44,7 +43,6 @@ lazy_static! {
     };
     pub static ref CC_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
         map.insert("900".to_string(), "900".to_string());
         map.insert("1000".to_string(), "1,000".to_string());
         map.insert("1200".to_string(), "1,200".to_string());
@@ -62,7 +60,6 @@ lazy_static! {
     };
     pub static ref POWER_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
         map.insert("34".to_string(), "34".to_string());
         map.insert("50".to_string(), "50".to_string());
         map.insert("60".to_string(), "60".to_string());
@@ -82,7 +79,6 @@ lazy_static! {
     };
     pub static ref PRICE_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
         map.insert("5000".to_string(), "5,000".to_string());
         map.insert("10000".to_string(), "10,000".to_string());
         map.insert("20000".to_string(), "20,000".to_string());
@@ -120,8 +116,7 @@ lazy_static! {
         map
     };
     pub static ref PUBLISHED_ON_FILTER: BTreeMap<String, String> = {
-        let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
+
         let today = Utc::now().date_naive();
         let yesterday = today - Duration::days(1);
         let three_days_ago = today - Duration::days(3);
@@ -144,8 +139,6 @@ lazy_static! {
         date_vec.sort_by(|a, b| b.0.cmp(&a.0));
 
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
-
         for (date, label) in date_vec {
             map.insert(date.format("%Y-%m-%d").to_string(), label);
         }
@@ -153,7 +146,6 @@ lazy_static! {
     };
     pub static ref YEAR_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("0".to_string(), "Any".to_string());
         map.insert("2014".to_string(), "2014".to_string());
         map.insert("2015".to_string(), "2015".to_string());
         map.insert("2016".to_string(), "2016".to_string());
@@ -181,7 +173,6 @@ lazy_static! {
     };
     pub static ref SORT_BY_FILTER: BTreeMap<String, String> = {
         let mut map = BTreeMap::new();
-        map.insert("".to_string(), " Order by:".to_string());
         map.insert("source".to_string(), "Source".to_string());
         map.insert("make".to_string(), "Make".to_string());
         map.insert("model".to_string(), "Model".to_string());
