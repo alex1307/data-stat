@@ -30,4 +30,8 @@ echo "Generating EstimatedPrices.csv..."
 psql -U $DB_USER -d $DB_NAME -h $DB_HOST -p $DB_PORT -c "\copy (SELECT * FROM \"views\".\"EstimatedPrices\") TO '$CSV_DIR/EstimatedPrices.csv' WITH (FORMAT CSV, HEADER, DELIMITER ';')"
 clean_csv "$CSV_DIR/EstimatedPrices.csv"
 
+echo "Generating VehicleStatistic.csv..."
+psql -U $DB_USER -d $DB_NAME -h $DB_HOST -p $DB_PORT -c "\copy (SELECT * FROM \"views\".\"VehicleStatistic\") TO '$CSV_DIR/VehicleStatistic.csv' WITH (FORMAT CSV, HEADER, DELIMITER ';')"
+clean_csv "$CSV_DIR/VehicleStatistic.csv"
+
 echo "CSV generation and cleanup complete."

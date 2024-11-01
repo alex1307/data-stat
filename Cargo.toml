@@ -23,7 +23,7 @@ axum = { version = "0.7", features = [
 
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 axum-util = "0.2"
-tokio = { version = "1.39", features = ["full"] }
+tokio = { version = "1.41", features = ["full"] }
 tower-http = { version = "0.6", features = ["trace", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -44,7 +44,7 @@ async-trait = "0.1"
 clap = { version = "4.5", features = ["derive"] }
 uuid = { version = "1.8", features = ["v4", "fast-rng", "macro-diagnostics"] }
 openssl = { version = "0.10", features = ["vendored"] }
-polars = { version = "0.43", features = [
+polars = { version = "0.44", features = [
     "lazy",
     "temporal",
     "describe",

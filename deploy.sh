@@ -11,7 +11,8 @@ SERVICE_NAME="vehicle-data"
 perl -pi -e 's/"//g' resources/Prices.csv
 perl -pi -e 's/"//g' resources/Vehicles.csv
 perl -pi -e 's/"//g' resources/EstimatedPrices.csv
-
+   
+echo "Service $SERVICE_NAME is stopped "
 # Check if the --all parameter is provided
 if [[ $1 == "--all" ]]; then
     # Execute additional commands
@@ -19,13 +20,6 @@ if [[ $1 == "--all" ]]; then
     TARGET_CC=x86_64-linux-musl-gcc cargo build --release --target x86_64-unknown-linux-musl
     
     echo "Copying the binary to the remote server..."
-ssh -i $SSH_KEY_PATH $REMOTE_USER@$REMOTE_HOST << EOF
-      cd /
-      sudo systemctl stop $SERVICE_NAME
-      exit
-EOF
-    echo "Service $SERVICE_NAME is stopped " 
-    sleep 2
     scp -i $SSH_KEY_PATH -r target/x86_64-unknown-linux-musl/release/vehicle-data $REMOTE_USER@$REMOTE_HOST:/vehicle-app/
 fi
 

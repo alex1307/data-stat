@@ -15,6 +15,7 @@ use polars::{
 pub const VEHICLE_DATA_VIEW_FILE: &str = "./resources/Vehicles.csv";
 pub const STAT_PRICE_DATA_FILE: &str = "./resources/Prices.csv";
 pub const ESTIMATED_PRICES_DATA_FILE: &str = "./resources/EstimatedPrices.csv";
+pub const VEHICLE_STATISTIC_DATA_FILE: &str = "./resources/VehicleStatistic.csv";
 
 lazy_static! {
     static ref INIT_LOGGER: Once = Once::new();
@@ -94,6 +95,35 @@ lazy_static! {
         Arc::new(schema)
     };
 
+    pub static ref VEHICLE_STATISTIC_SCHEMA: Arc<Schema> = {
+        let mut schema = Schema::from_iter(vec![
+            Field::new("advert_id".into(),  polars::datatypes::DataType::String),
+            Field::new("make".into(),  polars::datatypes::DataType::String),
+            Field::new("model".into(), polars::datatypes::DataType::String),
+        ]);
+        schema.with_column("year".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("engine".into(), polars::datatypes::DataType::String);
+        schema.with_column("gearbox".into(), polars::datatypes::DataType::String);
+        schema.with_column("price_in_eur".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("mileage_breakdown".into(), polars::datatypes::DataType::String);
+        schema.with_column("cc_breakdown".into(), polars::datatypes::DataType::String);
+        schema.with_column("power_breakdown".into(), polars::datatypes::DataType::String);
+        schema.with_column("price__breakdown".into(), polars::datatypes::DataType::String);
+        schema.with_column("mileage_breakdown_order".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("cc_breakdown_order".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("power_breakdown_order".into(), polars::datatypes::DataType::String);
+        schema.with_column("price__breakdown_order".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("year_created_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("year_changed_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("week_created_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("week_changed_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("days_in_sale".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("sold_since".into(), polars::datatypes::DataType::Int32);
+
+        Arc::new(schema)
+    };
+
+
     // };
     pub static ref VEHICLES_DATA: polars::prelude::LazyFrame = {
         INIT_LOGGER.call_once(|| {
@@ -112,7 +142,7 @@ lazy_static! {
 
     };
 
-    pub static ref STAT_DATA: polars::prelude::LazyFrame = {
+    pub static ref PRICE_DATA: polars::prelude::LazyFrame = {
         let path = vec![PathBuf::from(STAT_PRICE_DATA_FILE)];
         let param = Arc::from(path);
         LazyCsvReader::new(STAT_PRICE_DATA_FILE)
@@ -134,6 +164,23 @@ lazy_static! {
             .with_schema(Some(ESTIMATED_PRICES_SCHEMA.clone()))
             .finish()
             .unwrap()
+    };
+
+    pub static ref VEHICLE_STATIC_DATA: polars::prelude::LazyFrame = {
+        INIT_LOGGER.call_once(|| {
+            // Initialize logging or any other one-time setup here
+            info!("SUCCESS: Loggers are configured with dir: _log/*");
+        });
+        let path = vec![PathBuf::from(VEHICLE_STATISTIC_DATA_FILE)];
+        let param = Arc::from(path);
+        LazyCsvReader::new(VEHICLE_STATISTIC_DATA_FILE)
+            .with_paths(param)
+            .with_try_parse_dates(true)
+            .with_separator(b';')
+            .with_schema(Some(VEHICLE_STATISTIC_SCHEMA.clone()))
+            .finish()
+            .unwrap()
+
     };
 
     pub static ref HIDDEN_COLUMNS: Vec<String> = vec![

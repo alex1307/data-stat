@@ -21,8 +21,10 @@ use clap::Parser;
 use data_statistics::{
     configure_log4rs,
     services::{
-        PriceCalculator::calculateStatistic,
-        Statistic::{search, stat_distribution, StatisticSearchPayload},
+        ChartServices::chartData,
+        EstimatedPriceService::calculateStatistic,
+        PriceService::{stat_distribution, StatisticSearchPayload},
+        VehicleService::search,
     },
     Payload, VEHICLES_DATA,
 };
@@ -71,6 +73,7 @@ async fn main() {
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
         .route("/calculator", post(calculate))
+        .route("/charts-data", post(charts_data))
         .route("/enums/:name", get(enums))
         .route("/enums/:make/models", get(models))
         .route("/metrics", get(|| async move { metric_handle.render() }))
@@ -108,6 +111,11 @@ async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResp
 
 async fn calculate(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
     let response = calculateStatistic(payload);
+    (StatusCode::OK, Json(response))
+}
+
+async fn charts_data(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    let response = chartData(payload);
     (StatusCode::OK, Json(response))
 }
 
