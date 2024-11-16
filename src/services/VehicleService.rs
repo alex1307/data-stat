@@ -191,7 +191,7 @@ pub fn group_by(aggregator: HashMap<String, Vec<GroupFunc>>) -> impl AsRef<[Expr
                 GroupFunc::Count => col(c).count().alias("Count"),
                 GroupFunc::Quantile(p) => col(c)
                     .quantile((*p).into(), polars::prelude::QuantileMethod::Nearest)
-                    .alias(&format!("Q_{}", p)),
+                    .alias(format!("Q_{}", p)),
             };
             agg_exprs.push(agg_expr);
         }

@@ -24,15 +24,15 @@ pub struct Order {
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct StatisticSearchPayload {
     pub search: Option<String>,
-    pub(crate) make: Option<String>,
-    pub(crate) model: Option<String>,
+    pub make: Option<String>,
+    pub model: Option<String>,
 
-    pub(crate) engine: Option<Vec<String>>,
-    pub(crate) gearbox: Option<String>,
+    pub engine: Option<Vec<String>>,
+    pub gearbox: Option<String>,
 
-    pub(crate) yearFrom: Option<i32>,
-    pub(crate) yearTo: Option<i32>,
-    pub(crate) year: Option<i32>,
+    pub yearFrom: Option<i32>,
+    pub yearTo: Option<i32>,
+    pub year: Option<i32>,
 
     pub powerFrom: Option<i32>,
     pub powerTo: Option<i32>,
@@ -46,21 +46,21 @@ pub struct StatisticSearchPayload {
     pub ccTo: Option<i32>,
     pub cc: Option<i32>,
 
-    pub(crate) saveDiffFrom: Option<i32>,
-    pub(crate) saveDiffTo: Option<i32>,
+    pub saveDiffFrom: Option<i32>,
+    pub saveDiffTo: Option<i32>,
 
-    pub(crate) discountFrom: Option<i32>,
-    pub(crate) discountTo: Option<i32>,
+    pub discountFrom: Option<i32>,
+    pub discountTo: Option<i32>,
 
-    pub(crate) createdOnFrom: Option<i32>,
-    pub(crate) createdOnTo: Option<i32>,
+    pub createdOnFrom: Option<i32>,
+    pub createdOnTo: Option<i32>,
 
-    pub(crate) group: Vec<String>,
-    pub(crate) aggregators: Vec<String>,
-    pub(crate) order: Vec<Order>,
-    pub(crate) stat_column: Option<String>,
-    pub(crate) estimated_price: Option<i32>,
-    pub(crate) price: Option<i32>,
+    pub group: Vec<String>,
+    pub aggregators: Vec<String>,
+    pub order: Vec<Order>,
+    pub stat_column: Option<String>,
+    pub estimated_price: Option<i32>,
+    pub price: Option<i32>,
 }
 
 pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Value> {
@@ -69,7 +69,7 @@ pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Valu
     // Group by the required columns and calculate the required statistics
     info!("Payload: {:?}", search);
     let filterConditions = to_predicate(search.clone());
-    let by = search.group.iter().map(|k| col(k)).collect::<Vec<_>>();
+    let by = search.group.iter().map(col).collect::<Vec<_>>();
     let stat_column = search
         .stat_column
         .clone()
@@ -490,15 +490,14 @@ mod test_stat {
         let adjusted_estimate = weighted_average * adjustment_factor;
 
         // Optionally, we could add a factor based on standard deviation
-        let final_estimate = if std > 10000.0 {
+
+        if std > 10000.0 {
             adjusted_estimate * 1.05 // if std is very high, slightly increase the estimate
         } else if std < 5000.0 {
             adjusted_estimate * 0.95 // if std is very low, slightly decrease the estimate
         } else {
             adjusted_estimate
-        };
-
-        final_estimate
+        }
     }
 
     #[test]
@@ -622,7 +621,7 @@ mod test_stat {
                     .cast(polars::prelude::DataType::Int32)
                     .alias("rsd"),
             ])
-            .sort(&vec!["price_breakdown_order".to_string()], sort)
+            .sort(vec!["price_breakdown_order".to_string()], sort)
             .collect()
             .unwrap();
         log::info!("{:?}", grouped_df);

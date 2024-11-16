@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+pub mod model;
 pub mod services;
 use std::{
     path::PathBuf,
