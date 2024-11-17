@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, vec};
+use std::{collections::HashMap, vec};
 
 use log::info;
 use polars::{
@@ -6,56 +6,21 @@ use polars::{
     frame::DataFrame,
     prelude::{col, lit, when, Expr, IntoLazy, SortMultipleOptions},
 };
-use serde::{Deserialize, Serialize};
+
 use serde_json::Value;
 
 use crate::{
     model::{
-        DistributionType,
+        DistributionChartData, DistributionType, IntervalData,
         Intervals::{Interval, SortedIntervals, StatInterval},
         Quantiles::{generate_quantiles, Quantile},
+        Statistics,
     },
     services::{PriceService::to_aggregator, VehicleService::to_generic_json},
     VEHICLE_STATIC_DATA,
 };
 
 use super::PriceService::{to_predicate, StatisticSearchPayload};
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Statistics {
-    pub count: u32,
-    pub min: i32,
-    pub max: i32,
-    pub mean: f64,
-    pub median: f64,
-    pub rsd: f64,
-    pub quantiles: Vec<Quantile>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct DistributionChartData<T: Default> {
-    pub axisLabel: String,
-    pub dataLabel: String,
-    pub axisValues: Vec<T>,
-    pub min: T,
-    pub max: T,
-    pub median: T,
-    pub count: i32,
-    pub mean: f64,
-    pub rsd: f64,
-    pub data: Vec<IntervalData<T>>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntervalData<T> {
-    pub column: String,
-    pub category: String,
-    pub min: T,
-    pub max: T,
-    pub median: T,
-    pub count: i32,
-    pub mean: f64,
-    pub rsd: f64,
-}
 
 pub fn chartData(search: StatisticSearchPayload) -> HashMap<String, Value> {
     let df = VEHICLE_STATIC_DATA.clone();
@@ -565,6 +530,15 @@ pub fn data_to_bins(
     } else {
         stat_interval.orig_end
     };
+    let interval: Interval<i32> = Interval {
+        column: column.to_string(),
+        start: interval_start,
+        end: interval_end,
+        category: "all".to_string(),
+        index: 0,
+    };
+    let statistics: Statistics =
+        get_statistic_data(column, &filter, Some(interval), number_of_bins).unwrap();
 
     let mut intervals = vec![];
     if distribution_type == DistributionType::ByInterval {
@@ -580,15 +554,6 @@ pub fn data_to_bins(
             intervals.push(interval);
         }
     } else {
-        let interval: Interval<i32> = Interval {
-            column: column.to_string(),
-            start: interval_start,
-            end: interval_end,
-            category: "all".to_string(),
-            index: 0,
-        };
-        let statistics: Statistics =
-            get_statistic_data(column, &filter, Some(interval), number_of_bins).unwrap();
         let quantiles = statistics.quantiles;
 
         let start = Interval {
@@ -611,5 +576,16 @@ pub fn data_to_bins(
         }
     }
 
-    calculate(column, SortedIntervals::from(intervals), &filter)
+    let data_by_bins = calculate(column, SortedIntervals::from(intervals), &filter);
+    if let Ok(mut data) = data_by_bins {
+        data.count = statistics.count as i32;
+        data.mean = statistics.mean;
+        data.rsd = statistics.rsd;
+        data.median = statistics.median as i32;
+        data.max = statistics.max;
+        data.min = statistics.min;
+        Ok(data)
+    } else {
+        Err("Error calculating data".to_string())
+    }
 }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 
 mod chart_services_test {
-    use std::vec;
+    use std::{fs::File, io::Write, vec};
 
     use data_statistics::{
         configure_log4rs,
@@ -337,7 +337,10 @@ mod chart_services_test {
                 i
             );
         }
-        info!("{:?}", chart_data);
+        let json = serde_json::to_string_pretty(&chart_data);
+        info!("{:?}", json);
+        let mut file = File::create("chart_data.json").unwrap();
+        let _ = file.write_all(json.unwrap().as_bytes()).unwrap();
     }
 
     #[test]
@@ -377,6 +380,9 @@ mod chart_services_test {
                 i
             );
         }
-        info!("{:?}", chart_data);
+        let json = serde_json::to_string_pretty(&chart_data);
+        info!("{:?}", json);
+        let mut file = File::create("chart_data.json").unwrap();
+        let _ = file.write_all(json.unwrap().as_bytes()).unwrap();
     }
 }
