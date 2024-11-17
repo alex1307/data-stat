@@ -20,11 +20,10 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use data_statistics::{
     configure_log4rs,
+    model::AxumAPIModel::{DataToBinsRequest, RuntimeErrorResponse, StatisticSearchPayload},
     services::{
-        ChartServices::chartData,
-        EstimatedPriceService::calculateStatistic,
-        PriceService::{stat_distribution, StatisticSearchPayload},
-        VehicleService::search,
+        ChartServices::data_to_bins, EstimatedPriceService::calculateStatistic,
+        PriceService::stat_distribution, VehicleService::search,
     },
     Payload, VEHICLES_DATA,
 };
@@ -114,9 +113,23 @@ async fn calculate(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResp
     (StatusCode::OK, Json(response))
 }
 
-async fn charts_data(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
-    let response = chartData(payload);
-    (StatusCode::OK, Json(response))
+async fn charts_data(Json(payload): Json<DataToBinsRequest>) -> impl IntoResponse {
+    let response = data_to_bins(
+        &payload.column,
+        payload.filter,
+        payload.all,
+        payload.distribution_type,
+        payload.number_of_bins,
+    );
+
+    match response {
+        Ok(json) => (StatusCode::OK, Json(json)).into_response(),
+        Err(err) => (
+            StatusCode::BAD_REQUEST,
+            Json(RuntimeErrorResponse { message: err }),
+        )
+            .into_response(),
+    }
 }
 
 async fn models(

@@ -4,12 +4,9 @@ use log::info;
 use polars::prelude::{col, lit};
 use serde_json::{json, Value};
 
-use crate::ESTIMATED_PRICES_DATA;
+use crate::{model::AxumAPIModel::StatisticSearchPayload, ESTIMATED_PRICES_DATA};
 
-use super::{
-    PriceService::{to_predicate, StatisticSearchPayload},
-    VehicleService::to_generic_json,
-};
+use super::{PriceService::to_predicate, VehicleService::to_generic_json};
 
 const MILEAGE: [(i32, i32); 8] = [
     (0, 20000),

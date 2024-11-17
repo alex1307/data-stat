@@ -11,6 +11,7 @@ use serde_json::Value;
 
 use crate::{
     model::{
+        AxumAPIModel::StatisticSearchPayload,
         DistributionChartData, DistributionType, IntervalData,
         Intervals::{Interval, SortedIntervals, StatInterval},
         Quantiles::{generate_quantiles, Quantile},
@@ -20,7 +21,7 @@ use crate::{
     VEHICLE_STATIC_DATA,
 };
 
-use super::PriceService::{to_predicate, StatisticSearchPayload};
+use super::PriceService::to_predicate;
 
 pub fn chartData(search: StatisticSearchPayload) -> HashMap<String, Value> {
     let df = VEHICLE_STATIC_DATA.clone();

@@ -13,9 +13,9 @@ use polars::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::{HIDDEN_COLUMNS, VEHICLES_DATA};
+use crate::{model::AxumAPIModel::StatisticSearchPayload, HIDDEN_COLUMNS, VEHICLES_DATA};
 
-use super::PriceService::{to_predicate, StatisticSearchPayload};
+use super::PriceService::to_predicate;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PredicateFilter<T: ToOwned + ToString + Debug + Clone + Literal> {

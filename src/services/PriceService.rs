@@ -6,61 +6,15 @@ use polars::{
     lazy::dsl::{col, lit, Expr},
     prelude::{LazyFrame, SortMultipleOptions},
 };
-use serde::{Deserialize, Serialize};
+
 use serde_json::Value;
 
-use crate::PRICE_DATA;
+use crate::{model::AxumAPIModel::StatisticSearchPayload, PRICE_DATA};
 
 use super::VehicleService::{to_generic_json, to_like_predicate};
 
 pub struct StatisticService {
     pub price_data: LazyFrame,
-}
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct Order {
-    pub column: String,
-    pub asc: bool,
-}
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
-pub struct StatisticSearchPayload {
-    pub search: Option<String>,
-    pub make: Option<String>,
-    pub model: Option<String>,
-
-    pub engine: Option<Vec<String>>,
-    pub gearbox: Option<String>,
-
-    pub yearFrom: Option<i32>,
-    pub yearTo: Option<i32>,
-    pub year: Option<i32>,
-
-    pub powerFrom: Option<i32>,
-    pub powerTo: Option<i32>,
-    pub power: Option<i32>,
-
-    pub mileageFrom: Option<i32>,
-    pub mileageTo: Option<i32>,
-    pub mileage: Option<i32>,
-
-    pub ccFrom: Option<i32>,
-    pub ccTo: Option<i32>,
-    pub cc: Option<i32>,
-
-    pub saveDiffFrom: Option<i32>,
-    pub saveDiffTo: Option<i32>,
-
-    pub discountFrom: Option<i32>,
-    pub discountTo: Option<i32>,
-
-    pub createdOnFrom: Option<i32>,
-    pub createdOnTo: Option<i32>,
-
-    pub group: Vec<String>,
-    pub aggregators: Vec<String>,
-    pub order: Vec<Order>,
-    pub stat_column: Option<String>,
-    pub estimated_price: Option<i32>,
-    pub price: Option<i32>,
 }
 
 pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Value> {
@@ -305,8 +259,9 @@ mod test_stat {
 
     use crate::{
         configure_log4rs,
+        model::AxumAPIModel::Order,
         services::{
-            PriceService::{stat_distribution, Order, StatisticSearchPayload},
+            PriceService::{stat_distribution, StatisticSearchPayload},
             VehicleService::to_generic_json,
         },
     };

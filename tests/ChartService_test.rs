@@ -6,12 +6,12 @@ mod chart_services_test {
     use data_statistics::{
         configure_log4rs,
         model::{
+            AxumAPIModel::{Order, StatisticSearchPayload},
             DistributionType,
             Intervals::{Interval, SortedIntervals},
         },
         services::{
             ChartServices::{calculate, clean_data, data_to_bins, get_statistic_data},
-            PriceService::{Order, StatisticSearchPayload},
             VehicleService::to_generic_json,
         },
         PRICE_DATA,
@@ -351,12 +351,7 @@ mod chart_services_test {
             make: Some("Audi".to_string()),
             engine: Some(vec!["Petrol".to_string(), "Diesel".to_string()]),
             stat_column: Some("price_in_eur".to_string()),
-            order: vec![{
-                Order {
-                    column: "stat_category".to_string(),
-                    asc: false,
-                }
-            }],
+
             ..Default::default()
         };
         let all = true;

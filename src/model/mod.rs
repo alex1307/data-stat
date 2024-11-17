@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize, Serializer};
 use Quantiles::Quantile;
 
+pub mod AxumAPIModel;
 pub mod Intervals;
 pub mod Quantiles;
 
