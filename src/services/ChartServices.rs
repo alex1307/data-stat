@@ -1,4 +1,4 @@
-use std::{collections::HashMap, vec};
+use std::vec;
 
 use log::info;
 use polars::{
@@ -7,26 +7,31 @@ use polars::{
     prelude::{col, lit, when, Expr, IntoLazy, SortMultipleOptions},
 };
 
-use serde_json::Value;
-
 use crate::{
     model::{
-        AxumAPIModel::StatisticSearchPayload,
+        AxumAPIModel::{
+            DimensionData, Metadata, StatisticData, StatisticResponse, StatisticSearchPayload,
+        },
         DistributionChartData, DistributionType, IntervalData,
         Intervals::{Interval, SortedIntervals, StatInterval},
         Quantiles::{generate_quantiles, Quantile},
         Statistics,
     },
-    services::{PriceService::to_aggregator, VehicleService::to_generic_json},
+    services::PriceService::to_aggregator,
     VEHICLE_STATIC_DATA,
 };
 
 use super::PriceService::to_predicate;
 
-pub fn chartData(search: StatisticSearchPayload) -> HashMap<String, Value> {
+pub fn chartData(search: StatisticSearchPayload) -> StatisticResponse {
     let df = VEHICLE_STATIC_DATA.clone();
     if search.group.is_empty() {
-        HashMap::new()
+        StatisticResponse {
+            metadata: vec![],
+            dimensions: vec![],
+            data: vec![],
+            total_count: 0,
+        }
     } else {
         let filterConditions = to_predicate(search.clone());
         let stat_column = search.stat_column.unwrap_or("advert_id".to_string());
@@ -60,7 +65,7 @@ pub fn chartData(search: StatisticSearchPayload) -> HashMap<String, Value> {
                 .with_nulls_last(true);
             df.sort(vec!["count".to_string()], sort).collect().unwrap()
         };
-        to_generic_json(&result)
+        to_static_response(&result, search.group.clone())
     }
 }
 
@@ -588,5 +593,105 @@ pub fn data_to_bins(
         Ok(data)
     } else {
         Err("Error calculating data".to_string())
+    }
+}
+
+pub fn to_static_response(data: &DataFrame, group_by: Vec<String>) -> StatisticResponse {
+    let column_values = data.get_columns();
+    info!("Found results: {}", data.height());
+    info!("Column count: {}", column_values.len());
+
+    let mut metadata = vec![];
+    for (idx, column) in data.get_columns().iter().enumerate() {
+        metadata.push(Metadata {
+            column_index: idx as u8,
+            column: column.name().to_string(),
+        });
+    }
+    let mut dimensions = vec![];
+    for (idx, cv) in column_values
+        .iter()
+        .filter(|cv| group_by.contains(&cv.name().to_string()))
+        .enumerate()
+    {
+        let name = cv.name().to_string();
+        let data = cv
+            .str()
+            .unwrap()
+            .iter()
+            .map(|v| v.unwrap_or_default().to_string())
+            .collect::<Vec<_>>();
+        dimensions.push(DimensionData {
+            column_index: idx as u8,
+            column_name: name.clone(),
+            label: name.clone(),
+            data,
+        });
+    }
+    let count = data.height();
+    let mut chart_data = vec![];
+    for i in 0..count {
+        let count = if let Ok(count) = data.column("count") {
+            Some(count.u32().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+        let sum = if let Ok(sum) = data.column("sum") {
+            Some(sum.i32().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+        let avg = if let Ok(avg) = data.column("avg") {
+            Some(avg.f64().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+
+        let min = if let Ok(min) = data.column("min") {
+            Some(min.i32().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+
+        let max = if let Ok(max) = data.column("max") {
+            Some(max.i32().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+
+        let median = if let Ok(median) = data.column("median") {
+            Some(median.i32().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+
+        let rsd = if let Ok(rsd) = data.column("rsd") {
+            Some(rsd.f64().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+        let quantile = if let Ok(quantile) = data.column("quantile") {
+            Some(quantile.f64().unwrap().get(i).unwrap_or_default())
+        } else {
+            None
+        };
+        let data = StatisticData {
+            count,
+            sum,
+            avg,
+            min,
+            max,
+            median,
+            rsd,
+            quantile,
+        };
+        chart_data.push(data);
+    }
+
+    StatisticResponse {
+        metadata,
+        dimensions,
+        data: chart_data,
+        total_count: count as u32,
     }
 }

@@ -22,8 +22,10 @@ use data_statistics::{
     configure_log4rs,
     model::AxumAPIModel::{DataToBinsRequest, RuntimeErrorResponse, StatisticSearchPayload},
     services::{
-        ChartServices::data_to_bins, EstimatedPriceService::calculateStatistic,
-        PriceService::stat_distribution, VehicleService::search,
+        ChartServices::{chartData, data_to_bins},
+        EstimatedPriceService::calculateStatistic,
+        PriceService::stat_distribution,
+        VehicleService::search,
     },
     Payload, VEHICLES_DATA,
 };
@@ -72,7 +74,8 @@ async fn main() {
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
         .route("/calculator", post(calculate))
-        .route("/charts-data", post(charts_data))
+        .route("/data-distribution", post(data_bins))
+        .route("/data-stat", post(data_stat))
         .route("/enums/:name", get(enums))
         .route("/enums/:make/models", get(models))
         .route("/metrics", get(|| async move { metric_handle.render() }))
@@ -113,7 +116,12 @@ async fn calculate(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResp
     (StatusCode::OK, Json(response))
 }
 
-async fn charts_data(Json(payload): Json<DataToBinsRequest>) -> impl IntoResponse {
+async fn data_stat(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    let response = chartData(payload);
+    (StatusCode::OK, Json(response))
+}
+
+async fn data_bins(Json(payload): Json<DataToBinsRequest>) -> impl IntoResponse {
     let response = data_to_bins(
         &payload.column,
         payload.filter,

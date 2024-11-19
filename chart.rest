@@ -3,7 +3,7 @@
 # Request chart data: count and average price for Audi cars with petrol engine
 
 ###
-POST https://ehomeho:3000/localhost:3000/charts-data
+POST https://localhost:3000/data-stat
 Content-Type: application/json
 Accept: application/json
 
@@ -12,8 +12,6 @@ Accept: application/json
     "engine": [
         "Petrol"
     ],
-    "priceFrom": 0,
-    "priceTo": 100000,
     "group": [
         "make",
         "year"
@@ -29,7 +27,7 @@ Accept: application/json
 ###
 
 ###
-POST https://localhost:3000/statistic
+POST https://localhost:3000/data-stat
 Content-Type: application/json
 Accept: application/json
 
@@ -50,8 +48,8 @@ Accept: application/json
       "asc": true
     }
   ],
-  "stat_column": "price_in_eur",
-  "estimated_price": 0
+  "stat_column": "price_in_eur"
+  
 }
 
 
@@ -82,4 +80,27 @@ Accept: application/json
         
     ],
     "stat_column": "price_in_eur"
+}
+
+
+### POST request to /chart endpoint
+POST https://localhost:3000/charts-data
+Content-Type: application/json
+
+{
+  "column": "price_in_eur",
+  "filter": {
+    "make": "Audi",
+    "model": "A8",
+    "engine": [
+        "Petrol"
+    ],
+    "group": [],
+    "aggregators": [],
+    "order":[]
+    
+  },
+  "all": true,
+  "distribution_type": "ByInterval",
+  "number_of_bins": 5
 }

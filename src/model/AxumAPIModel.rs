@@ -64,3 +64,52 @@ pub struct Order {
 pub struct RuntimeErrorResponse {
     pub message: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum Dimension {
+    #[default]
+    D1,
+    D2,
+    D3,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DimensionData<T> {
+    pub label: String,
+    pub column_name: String,
+    pub column_index: u8,
+    pub data: Vec<T>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatisticData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sum: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub median: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rsd: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantile: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Metadata {
+    pub column: String,
+    pub column_index: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatisticResponse {
+    pub metadata: Vec<Metadata>,
+    pub dimensions: Vec<DimensionData<String>>,
+    pub data: Vec<StatisticData>,
+    pub total_count: u32,
+}
