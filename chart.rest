@@ -8,21 +8,25 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "make": "Audi",
-    "engine": [
-        "Petrol"
-    ],
-    "group": [
-        "make",
-        "year"
-    ],
-    "aggregators": [
-        "count",
-        "avg"
-    ],
-    "order": [],
-    "stat_column": "price_in_eur"
+  "yearFrom": 2010,
+  "yearTo": 2020,
+  "group": [
+    "year", "engine", "gearbox"
+  ],
+  "aggregators": [
+    "count"
+  ],
+  "order": [
+    {
+      "column": "year",
+      "asc": true
+    }
+  ],
+  "stat_column": "price_in_eur"
+  
 }
+
+###
 
 ###
 
@@ -34,8 +38,6 @@ Accept: application/json
 {
   "yearFrom": 2010,
   "yearTo": 2020,
-  "ccFrom": null,
-  "ccTo": null,
   "group": [
     "make"
   ],
@@ -53,38 +55,9 @@ Accept: application/json
 }
 
 
-###
-POST https://localhost:3000/charts-data
-Content-Type: application/json
-Accept: application/json
-
-{
-    "make": "Audi",
-    "engine": [
-        "Petrol"
-    ],
-    "priceTo": 100000,
-    "group": [
-        "make",
-        "year"
-    ],
-    "aggregators": [
-        "count",
-        "avg"
-    ],
-    "order": [
-        {
-            "column": "count",
-            "asc": true
-        }
-        
-    ],
-    "stat_column": "price_in_eur"
-}
-
 
 ### POST request to /chart endpoint
-POST https://localhost:3000/charts-data
+POST https://localhost:3000/data-distribution
 Content-Type: application/json
 
 {
@@ -95,12 +68,63 @@ Content-Type: application/json
     "engine": [
         "Petrol"
     ],
-    "group": [],
-    "aggregators": [],
     "order":[]
     
   },
   "all": true,
   "distribution_type": "ByInterval",
   "number_of_bins": 5
+}
+
+###
+POST https://localhost:3000/data-distribution
+Content-Type: application/json
+
+{
+  "column": "price_in_eur",
+  "filter": {
+    "make": "Audi",
+    "model": "A8",
+    "engine": [
+        "Petrol"
+    ],
+    "yearFrom": 2010,
+    "yearTo": 2020,
+    "powerFrom": 200,
+    "powerTo": 455,
+    "mileageFrom": 80000,
+    "mileageTo": 150000,
+    "order":[]
+    
+  },
+  "all": true,
+  "distribution_type": "ByInterval",
+  "number_of_bins": 5
+}
+
+###
+POST https://localhost:3000/data-stat
+Content-Type: application/json
+
+{
+  "make": "Audi",
+  "engine": [
+    "Petrol"
+  ],
+  "group": [
+    "make",
+    "year"
+  ],
+  "aggregators": [
+    "count",
+    "avg",
+    "sum"
+  ],
+  "order": [
+    {
+      "column": "year",
+      "asc": true
+    }
+  ],
+  "stat_column": "price_in_eur"
 }

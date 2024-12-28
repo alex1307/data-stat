@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define paths and database credentials
-CSV_DIR="/Users/matkat/Software"
+CSV_DIR="/Users/matkat/Software/Rust/data-stat/resources"
 DB_USER="admin"
 DB_NAME="vehicles"
 DB_HOST="localhost"
@@ -33,5 +33,9 @@ clean_csv "$CSV_DIR/EstimatedPrices.csv"
 echo "Generating VehicleStatistic.csv..."
 psql -U $DB_USER -d $DB_NAME -h $DB_HOST -p $DB_PORT -c "\copy (SELECT * FROM \"views\".\"VehicleStatistic\") TO '$CSV_DIR/VehicleStatistic.csv' WITH (FORMAT CSV, HEADER, DELIMITER ';')"
 clean_csv "$CSV_DIR/VehicleStatistic.csv"
+
+echo "Generating PriceCalculatorData.csv..."
+psql -U $DB_USER -d $DB_NAME -h $DB_HOST -p $DB_PORT -c "\copy (SELECT * FROM \"views\".\"PriceCalculatorData\") TO '$CSV_DIR/PriceCalculatorData.csv' WITH (FORMAT CSV, HEADER, DELIMITER ';')"
+clean_csv "$CSV_DIR/PriceCalculatorData.csv"
 
 echo "CSV generation and cleanup complete."

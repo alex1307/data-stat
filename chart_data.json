@@ -1,0 +1,59 @@
+{
+  "axisLabel": "price_in_eur",
+  "dataLabel": "stat_category",
+  "axisValues": [
+    7000,
+    25980,
+    35739,
+    50000,
+    206900
+  ],
+  "min": 7000,
+  "max": 206900,
+  "median": 35739,
+  "count": 27609,
+  "mean": 44790,
+  "rsd": 68,
+  "data": [
+    {
+      "column": "price_in_eur",
+      "category": "1",
+      "min": 7000,
+      "max": 25972,
+      "median": 20880,
+      "count": 6899,
+      "mean": 20260,
+      "rsd": 19
+    },
+    {
+      "column": "price_in_eur",
+      "category": "2",
+      "min": 25980,
+      "max": 35730,
+      "median": 30500,
+      "count": 6904,
+      "mean": 30703,
+      "rsd": 9
+    },
+    {
+      "column": "price_in_eur",
+      "category": "3",
+      "min": 35739,
+      "max": 49999,
+      "median": 41257,
+      "count": 6900,
+      "mean": 41915,
+      "rsd": 10
+    },
+    {
+      "column": "price_in_eur",
+      "category": "4",
+      "min": 50000,
+      "max": 205980,
+      "median": 73000,
+      "count": 6904,
+      "mean": 86218,
+      "rsd": 39
+    }
+  ]
+}
