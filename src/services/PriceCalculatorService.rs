@@ -70,10 +70,7 @@ pub fn calculateStatistic(filter: StatisticSearchPayload) -> HashMap<String, Val
 }
 
 fn calculate(filter: StatisticSearchPayload) -> HashMap<String, Value> {
-    let column = match filter.stat_column.clone() {
-        Some(v) => v.clone(),
-        None => "estimated_price_in_eur".to_string(),
-    };
+    let column = "price_in_eur".to_string();
     let vehicles = ESTIMATED_PRICES_DATA.clone();
 
     // Group by the required columns and calculate the required statistics
@@ -95,10 +92,7 @@ fn calculate(filter: StatisticSearchPayload) -> HashMap<String, Value> {
                 col("power"),
                 col("mileage"),
                 col("cc"),
-                col("equipment"),
-                col("title"),
                 col("price_in_eur"),
-                col("estimated_price_in_eur"),
                 lit(1).alias("GroupBy"),
             ])
             .filter(filterConditions)
@@ -262,7 +256,7 @@ fn calculate_estimated_value(result: &HashMap<String, Value>) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{configure_log4rs, services::EstimatedPriceService::calculate};
+    use crate::{configure_log4rs, services::PriceCalculatorService::calculate};
     use serde_json::json;
 
     #[test]

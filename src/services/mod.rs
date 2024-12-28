@@ -1,5 +1,5 @@
 pub mod ChartServices;
 pub mod EnumService;
-pub mod EstimatedPriceService;
+pub mod PriceCalculatorService;
 pub mod PriceService;
 pub mod VehicleService;

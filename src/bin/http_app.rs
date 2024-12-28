@@ -23,8 +23,8 @@ use data_statistics::{
     model::AxumAPIModel::{DataToBinsRequest, RuntimeErrorResponse, StatisticSearchPayload},
     services::{
         ChartServices::{chartData, data_to_bins},
-        EstimatedPriceService::calculateStatistic,
-        PriceService::stat_distribution,
+        PriceCalculatorService::calculateStatistic,
+        PriceService::{chart_data, stat_distribution},
         VehicleService::search,
     },
     Payload, VEHICLES_DATA,
@@ -73,6 +73,7 @@ async fn main() {
         // `POST /users` goes to `create_user`
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
+        .route("/analysis-chart", post(analysis_chart_data))
         .route("/calculator", post(calculate))
         .route("/data-distribution", post(data_bins))
         .route("/data-stat", post(data_stat))
@@ -108,6 +109,11 @@ async fn search_for_deals(Json(payload): Json<StatisticSearchPayload>) -> impl I
 
 async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
     let response = stat_distribution(payload);
+    (StatusCode::OK, Json(response))
+}
+
+async fn analysis_chart_data(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
+    let response = chart_data(payload);
     (StatusCode::OK, Json(response))
 }
 

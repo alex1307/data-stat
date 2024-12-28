@@ -11,6 +11,11 @@ pub struct DataToBinsRequest {
     pub number_of_bins: usize,
 }
 
+#[derive(Deserialize)]
+pub struct DataSummaryRequest {
+    pub filter: StatisticSearchPayload,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct StatisticSearchPayload {
     pub search: Option<String>,
@@ -45,8 +50,8 @@ pub struct StatisticSearchPayload {
     pub createdOnFrom: Option<i32>,
     pub createdOnTo: Option<i32>,
 
-    pub group: Vec<String>,
-    pub aggregators: Vec<String>,
+    pub group: Option<Vec<String>>,
+    pub aggregators: Option<Vec<String>>,
     pub order: Vec<Order>,
     pub stat_column: Option<String>,
     pub estimated_price: Option<i32>,
@@ -77,6 +82,7 @@ pub struct DimensionData<T> {
     pub label: String,
     pub column_name: String,
     pub column_index: u8,
+    pub distinct_count: u32,
     pub data: Vec<T>,
 }
 
@@ -87,7 +93,7 @@ pub struct StatisticData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sum: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avg: Option<f64>,
+    pub avg: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]

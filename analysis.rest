@@ -1,0 +1,201 @@
+
+###
+# Post request example
+
+###
+POST https://ehomeho:3000/statistic
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "model": null,
+    "year": null,
+    "engine": [
+        "Petrol"
+    ],
+    "gearbox": null,
+    "yearFrom": null,
+    "yearTo": null,
+    "powerFrom": null,
+    "powerTo": null,
+    "mileageFrom": null,
+    "mileageTo": null,
+    "ccFrom": null,
+    "ccTo": null,
+    "priceFrom": 0,
+    "priceTo": 100000,
+    "group": [
+        "make",
+        "year"
+    ],
+    "aggregators": [
+        "count",
+        "avg"
+    ],
+    "order": [],
+    "stat_column": "price_in_eur",
+    "estimated_price": null
+}
+
+###
+
+###
+POST https://localhost:3000/statistic
+Content-Type: application/json
+Accept: application/json
+
+{
+  "yearFrom": 2010,
+  "yearTo": 2020,
+  "ccFrom": null,
+  "ccTo": null,
+  "group": [
+    "make"
+  ],
+  "aggregators": [
+    "count"
+  ],
+  "order": [
+    {
+      "column": "make",
+      "asc": true
+    }
+  ],
+  "stat_column": "price_in_eur",
+  "estimated_price": 0
+}
+
+###
+###
+POST https://localhost:3000/analysis-chart
+Content-Type: application/json
+Accept: application/json
+
+{
+  "yearFrom": 2010,
+  "yearTo": 2020,
+  "ccFrom": null,
+  "ccTo": null,
+  "group": [
+   "year", "gearbox", "engine"
+  ],
+  "aggregators": [
+    "sum"
+  ],
+  "order": [
+    {
+      "column": "year",
+      "asc": true
+    }
+  ],
+  "stat_column": "price_in_eur",
+  "estimated_price": 0
+}
+
+###
+POST https://localhost:3000/calculator
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "model": "A4",
+    "year": 2018,
+    "engine": ["Diesel", "Petrol"],
+    "mileage": 55000,
+    "power": 150,
+    "aggregators": [],
+    "group": [],
+    "order": [],
+    "stat_column": "price_in_eur"
+}
+
+###
+POST https://ehomeho:3000/charts-data
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "model": null,
+    "year": null,
+    "engine": [
+        "Petrol"
+    ],
+    "gearbox": null,
+    "yearFrom": null,
+    "yearTo": null,
+    "powerFrom": null,
+    "powerTo": null,
+    "mileageFrom": null,
+    "mileageTo": null,
+    "ccFrom": null,
+    "ccTo": null,
+    "priceFrom": 0,
+    "priceTo": 100000,
+    "group": [
+        "make",
+        "year"
+    ],
+    "aggregators": [
+        "count",
+        "avg"
+    ],
+    "order": [],
+    "stat_column": "price_in_eur",
+    "estimated_price": null
+}
+
+
+###
+POST https://localhost:3000/charts-data
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "engine": [
+        "Petrol"
+    ],
+    "gearbox": ["Automatic", "Manual"],
+    "priceFrom": 0,
+    "priceTo": 100000,
+    "group": [
+        "make",
+        "year"
+    ],
+    "aggregators": [
+        "count",
+        "avg"
+    ],
+    "order": [],
+    "stat_column": "price_in_eur",
+}
+
+###
+POST https://localhost:3000/analysis-chart
+Content-Type: application/json
+Accept: application/json
+
+{
+    "make": "Audi",
+    "engine": [
+        "Petrol",
+        "Diesel",
+        "Hybrid"
+    ],
+    "priceFrom": 0,
+    "priceTo": 100000,
+    "group": [
+        "year",
+        "engine",
+        "gearbox"
+    ],
+    "aggregators": [
+        "count"
+    ],
+    "order": [],
+    "stat_column": "price_in_eur"
+
+}

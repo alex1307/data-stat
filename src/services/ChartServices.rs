@@ -25,48 +25,54 @@ use super::PriceService::to_predicate;
 
 pub fn chartData(search: StatisticSearchPayload) -> StatisticResponse {
     let df = VEHICLE_STATIC_DATA.clone();
-    if search.group.is_empty() {
-        StatisticResponse {
+    let group = if search.group.is_none() {
+        vec![]
+    } else {
+        search.group.clone().unwrap()
+    };
+    if group.is_empty() {
+        return StatisticResponse {
             metadata: vec![],
             dimensions: vec![],
             data: vec![],
             total_count: 0,
-        }
-    } else {
-        let filterConditions = to_predicate(search.clone());
-        let stat_column = search.stat_column.unwrap_or("advert_id".to_string());
-        let aggregators = if stat_column == "advert_id" {
-            to_aggregator(vec!["count".to_string()], &stat_column)
-        } else {
-            to_aggregator(search.aggregators.clone(), &stat_column)
         };
-
-        let by = search.group.iter().map(col).collect::<Vec<_>>();
-        let df = df
-            .with_columns(&by)
-            .filter(filterConditions)
-            .group_by(by.as_slice())
-            .agg(&aggregators);
-        let result = if !search.order.is_empty() {
-            let mut columns = Vec::new();
-            let mut orders = Vec::new();
-
-            for sort in search.order.iter() {
-                columns.push(sort.column.clone());
-                orders.push(!sort.asc);
-            }
-            let sort = SortMultipleOptions::new()
-                .with_order_descending_multi(orders)
-                .with_nulls_last(true);
-            df.sort(&columns, sort).collect().unwrap()
-        } else {
-            let sort = SortMultipleOptions::new()
-                .with_order_descending_multi(vec![false])
-                .with_nulls_last(true);
-            df.sort(vec!["count".to_string()], sort).collect().unwrap()
-        };
-        to_static_response(&result, search.group.clone())
     }
+
+    let filterConditions = to_predicate(search.clone());
+    let stat_column = search.stat_column.unwrap_or("advert_id".to_string());
+    let aggregators = if stat_column == "advert_id" || search.aggregators.is_none() {
+        to_aggregator(vec!["count".to_string()], &stat_column)
+    } else {
+        let aggregators = search.aggregators.unwrap();
+        to_aggregator(aggregators, &stat_column)
+    };
+
+    let by = group.iter().map(col).collect::<Vec<_>>();
+    let df = df
+        .with_columns(&by)
+        .filter(filterConditions)
+        .group_by(by.as_slice())
+        .agg(&aggregators);
+    let result = if !search.order.is_empty() {
+        let mut columns = Vec::new();
+        let mut orders = Vec::new();
+
+        for sort in search.order.iter() {
+            columns.push(sort.column.clone());
+            orders.push(!sort.asc);
+        }
+        let sort = SortMultipleOptions::new()
+            .with_order_descending_multi(orders)
+            .with_nulls_last(true);
+        df.sort(&columns, sort).collect().unwrap()
+    } else {
+        let sort = SortMultipleOptions::new()
+            .with_order_descending_multi(vec![false])
+            .with_nulls_last(true);
+        df.sort(vec!["count".to_string()], sort).collect().unwrap()
+    };
+    to_static_response(&result, group.clone())
 }
 
 pub fn get_statistic_data(
@@ -614,18 +620,34 @@ pub fn to_static_response(data: &DataFrame, group_by: Vec<String>) -> StatisticR
         .filter(|cv| group_by.contains(&cv.name().to_string()))
         .enumerate()
     {
+        let dtype = cv.dtype().clone();
+        let data = if dtype == polars::prelude::DataType::Int32
+            || dtype == polars::prelude::DataType::UInt32
+            || dtype == polars::prelude::DataType::Int64
+            || dtype == polars::prelude::DataType::UInt64
+        {
+            cv.i32()
+                .unwrap()
+                .iter()
+                .map(|v| v.unwrap_or_default().to_string())
+                .collect::<Vec<_>>()
+        } else {
+            cv.str()
+                .unwrap()
+                .iter()
+                .map(|v| v.unwrap_or_default().to_string())
+                .collect::<Vec<_>>()
+        };
         let name = cv.name().to_string();
-        let data = cv
-            .str()
-            .unwrap()
-            .iter()
-            .map(|v| v.unwrap_or_default().to_string())
-            .collect::<Vec<_>>();
         dimensions.push(DimensionData {
             column_index: idx as u8,
             column_name: name.clone(),
             label: name.clone(),
-            data,
+            data: data.clone(),
+            distinct_count: data
+                .into_iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len() as u32,
         });
     }
     let count = data.height();
@@ -642,7 +664,7 @@ pub fn to_static_response(data: &DataFrame, group_by: Vec<String>) -> StatisticR
             None
         };
         let avg = if let Ok(avg) = data.column("avg") {
-            Some(avg.f64().unwrap().get(i).unwrap_or_default())
+            Some(avg.i64().unwrap().get(i).unwrap_or_default())
         } else {
             None
         };

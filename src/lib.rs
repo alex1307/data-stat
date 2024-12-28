@@ -15,7 +15,7 @@ use polars::{
 
 pub const VEHICLE_DATA_VIEW_FILE: &str = "./resources/Vehicles.csv";
 pub const STAT_PRICE_DATA_FILE: &str = "./resources/Prices.csv";
-pub const ESTIMATED_PRICES_DATA_FILE: &str = "./resources/EstimatedPrices.csv";
+pub const ESTIMATED_PRICES_DATA_FILE: &str = "./resources/PriceCalculatorData.csv";
 pub const VEHICLE_STATISTIC_DATA_FILE: &str = "./resources/VehicleStatistic.csv";
 
 lazy_static! {
@@ -81,8 +81,6 @@ lazy_static! {
             Field::new("make".into(),  polars::datatypes::DataType::String),
             Field::new("model".into(), polars::datatypes::DataType::String),
         ]);
-        schema.with_column("title".into(), polars::datatypes::DataType::String);
-        schema.with_column("equipment".into(), polars::datatypes::DataType::String);
         schema.with_column("year".into(), polars::datatypes::DataType::Int32);
         schema.with_column("engine".into(), polars::datatypes::DataType::String);
         schema.with_column("gearbox".into(), polars::datatypes::DataType::String);
@@ -92,7 +90,6 @@ lazy_static! {
         schema.with_column("mileage_breakdown".into(), polars::datatypes::DataType::String);
         schema.with_column("power_breakdown".into(), polars::datatypes::DataType::String);
         schema.with_column("price_in_eur".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("estimated_price_in_eur".into(), polars::datatypes::DataType::Int32);
         Arc::new(schema)
     };
 
@@ -105,6 +102,8 @@ lazy_static! {
         schema.with_column("year".into(), polars::datatypes::DataType::Int32);
         schema.with_column("engine".into(), polars::datatypes::DataType::String);
         schema.with_column("gearbox".into(), polars::datatypes::DataType::String);
+        schema.with_column("mileage".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("power".into(), polars::datatypes::DataType::Int32);
         schema.with_column("price_in_eur".into(), polars::datatypes::DataType::Int32);
         schema.with_column("mileage_breakdown".into(), polars::datatypes::DataType::String);
         schema.with_column("cc_breakdown".into(), polars::datatypes::DataType::String);
@@ -116,10 +115,13 @@ lazy_static! {
         schema.with_column("price__breakdown_order".into(), polars::datatypes::DataType::Int32);
         schema.with_column("year_created_on".into(), polars::datatypes::DataType::Int32);
         schema.with_column("year_changed_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("month_created_on".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("month_changed_on".into(), polars::datatypes::DataType::Int32);
         schema.with_column("week_created_on".into(), polars::datatypes::DataType::Int32);
         schema.with_column("week_changed_on".into(), polars::datatypes::DataType::Int32);
         schema.with_column("days_in_sale".into(), polars::datatypes::DataType::Int32);
-        schema.with_column("sold_since".into(), polars::datatypes::DataType::Int32);
+        schema.with_column("created_on".into(), polars::datatypes::DataType::Date);
+        schema.with_column("sold_date".into(), polars::datatypes::DataType::Date);
 
         Arc::new(schema)
     };
