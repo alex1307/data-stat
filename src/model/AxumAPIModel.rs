@@ -59,6 +59,17 @@ pub struct StatisticSearchPayload {
     pub priceFrom: Option<i32>,
     pub priceTo: Option<i32>,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+pub struct PivotData {
+    pub x_column: String,
+    pub second_x_column: Option<String>,
+    pub y_column: String,
+    pub y_function: String,
+    pub pivot_column: Option<String>,
+    pub filter: StatisticSearchPayload,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct Order {
     pub column: String,

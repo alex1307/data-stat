@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 
 use crate::{model::AxumAPIModel::StatisticSearchPayload, ESTIMATED_PRICES_DATA};
 
-use super::{PriceService::to_predicate, VehicleService::to_generic_json};
+use super::{Utils::to_predicate, VehicleService::to_generic_json};
 
 const MILEAGE: [(i32, i32); 8] = [
     (0, 20000),

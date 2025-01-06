@@ -8,7 +8,7 @@ edition = "2021"
 target-dir = "/Users/matkat/Software/release/Rust/bin"
 
 [dependencies]
-axum = { version = "0.7.9", features = [
+axum = { version = "0.8", features = [
     "form",
     "http1",
     "json",

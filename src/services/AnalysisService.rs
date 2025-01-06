@@ -3,22 +3,27 @@ use std::{
     vec,
 };
 
-use chrono::{NaiveDate, TimeDelta, Utc};
-use log::{error, info};
+use log::info;
 
 use polars::{
-    error::PolarsError,
     frame::DataFrame,
-    lazy::dsl::{col, lit, Expr},
-    prelude::{pivot::pivot, DataType, IntoLazy, LazyFrame, SortMultipleOptions},
+    lazy::dsl::col,
+    prelude::{DataType, LazyFrame, SortMultipleOptions},
     series::Series,
 };
 
 use serde_json::{json, Value};
 
-use crate::{model::AxumAPIModel::StatisticSearchPayload, PRICE_DATA};
+use crate::{
+    model::AxumAPIModel::{PivotData, StatisticSearchPayload},
+    services::{
+        PivotService::to_pivot_json,
+        Utils::{to_aggregator, to_predicate},
+    },
+    PRICE_DATA,
+};
 
-use super::VehicleService::{to_generic_json, to_like_predicate};
+use super::VehicleService::to_generic_json;
 
 pub struct StatisticService {
     pub price_data: LazyFrame,
@@ -107,7 +112,9 @@ pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Valu
     to_generic_json(&result)
 }
 
-pub fn chart_data(search: StatisticSearchPayload) -> HashMap<String, Value> {
+//pub fn chart_data(search: StatisticSearchPayload) -> HashMap<String, Value> {
+pub fn chart_data(payload: PivotData) -> HashMap<String, Value> {
+    let search = payload.filter.clone();
     let df: LazyFrame = PRICE_DATA.clone();
 
     // Group by the required columns and calculate the required statistics
@@ -199,161 +206,10 @@ pub fn chart_data(search: StatisticSearchPayload) -> HashMap<String, Value> {
         info!("Aggregator: {:?}", aggregator);
         to_pivot_json(
             &filtered.collect().unwrap(),
-            group,
-            pivot_col,
-            aggregator,
-            true, // Sort pivoted columns
+            &payload, // Sort pivoted columns
         )
         .unwrap()
     }
-}
-
-pub fn to_aggregator(aggregators: Vec<String>, column: &str) -> Vec<Expr> {
-    let mut agg = vec![];
-    for aggregator in aggregators {
-        let func = get_aggregator(column, &aggregator);
-        if let Some(agg_func) = func {
-            agg.push(agg_func.alias(aggregator));
-        }
-    }
-    agg
-}
-
-pub fn to_predicate(search: StatisticSearchPayload) -> Expr {
-    let mut predicates = vec![];
-
-    if let Some(search) = search.search {
-        info!("search: {:?}", search);
-        let mut search_filter = HashMap::new();
-        search_filter.insert(
-            "title".to_string().to_lowercase(),
-            search.clone().to_lowercase(),
-        );
-        search_filter.insert(
-            "equipment".to_string().to_lowercase(),
-            search.clone().to_lowercase(),
-        );
-        let predicate = to_like_predicate(search_filter, true);
-        if let Some(p) = predicate {
-            predicates.push(p);
-        }
-    }
-
-    if let Some(make) = search.make {
-        predicates.push(col("make").eq(lit(make)));
-    }
-
-    if let Some(model) = search.model {
-        predicates.push(col("model").eq(lit(model)));
-    }
-
-    if let Some(engine) = search.engine {
-        let mut engine_predicates = vec![];
-        for v in engine.iter() {
-            let p = col("engine").eq(lit(v.clone()));
-            engine_predicates.push(p);
-        }
-        if !engine_predicates.is_empty() {
-            let mut predicate = engine_predicates[0].clone();
-            for p in engine_predicates.iter().skip(1) {
-                predicate = predicate.or(p.clone());
-            }
-
-            predicates.push(predicate);
-        }
-    }
-
-    if let Some(gearbox) = search.gearbox {
-        predicates.push(col("gearbox").eq(lit(gearbox)));
-    }
-
-    if let Some(estimated_price) = search.estimated_price {
-        predicates.push(col("estimated_price_in_eur").gt_eq(lit(estimated_price)));
-    }
-
-    if let Some(price) = search.price {
-        predicates.push(col("price_in_eur").gt_eq(lit(price)));
-    }
-
-    if let Some(yearFrom) = search.year {
-        predicates.push(col("year").eq(lit(yearFrom)));
-    } else {
-        if let Some(yearFrom) = search.yearFrom {
-            predicates.push(col("year").gt_eq(lit(yearFrom)));
-        }
-        if let Some(yearTo) = search.yearTo {
-            predicates.push(col("year").lt_eq(lit(yearTo)));
-        }
-    }
-    if let Some(discount) = search.discountFrom {
-        predicates.push(col("discount").gt_eq(lit(discount)));
-    }
-    if let Some(discount) = search.discountTo {
-        predicates.push(col("discount").lt_eq(lit(discount)));
-    }
-
-    if let Some(saveDifference) = search.saveDiffFrom {
-        predicates.push(col("save_diff_in_eur").gt_eq(lit(saveDifference)));
-    }
-    if let Some(saveDifference) = search.saveDiffTo {
-        predicates.push(col("save_diff_in_eur").lt_eq(lit(saveDifference)));
-    }
-
-    if let Some(power) = search.power {
-        predicates.push(col("power").eq(lit(power)));
-    } else {
-        if let Some(powerFrom) = search.powerFrom {
-            predicates.push(col("power").gt_eq(lit(powerFrom)));
-        }
-        if let Some(powerTo) = search.powerTo {
-            predicates.push(col("power").lt_eq(lit(powerTo)));
-        }
-    }
-    if let Some(mileage) = search.mileage {
-        predicates.push(col("mileage").eq(lit(mileage)));
-    } else {
-        if let Some(mileageFrom) = search.mileageFrom {
-            predicates.push(col("mileage").gt_eq(lit(mileageFrom)));
-        }
-        if let Some(mileageTo) = search.mileageTo {
-            predicates.push(col("mileage").lt_eq(lit(mileageTo)));
-        }
-    }
-
-    if let Some(cc) = search.cc {
-        predicates.push(col("cc").eq(lit(cc)));
-    } else {
-        if let Some(ccFrom) = search.ccFrom {
-            predicates.push(col("cc").gt_eq(lit(ccFrom)));
-        }
-        if let Some(ccTo) = search.ccTo {
-            predicates.push(col("cc").lt_eq(lit(ccTo)));
-        }
-    }
-
-    if let Some(createdOnFrom) = search.createdOnFrom {
-        let date = convert_days_to_date(createdOnFrom as i64);
-        predicates.push(col("created_on").gt_eq(lit(date)));
-    }
-
-    if let Some(createdOnTo) = search.createdOnTo {
-        let date = convert_days_to_date(createdOnTo as i64);
-        predicates.push(col("created_on").lt_eq(lit(date)));
-    }
-    if predicates.is_empty() {
-        return col("make").neq(lit("x"));
-    }
-    let combined_predicates = predicates
-        .into_iter()
-        .reduce(|acc, pred| acc.and(pred))
-        .unwrap();
-    info!("Predicates: {:?}", combined_predicates);
-    combined_predicates
-}
-
-fn convert_days_to_date(days_ago: i64) -> NaiveDate {
-    let today = Utc::now().naive_utc().date();
-    today.checked_sub_signed(TimeDelta::days(days_ago)).unwrap()
 }
 
 pub fn to_stacked_bars_json(
@@ -543,244 +399,6 @@ fn series_to_string_vec(series: &Series) -> Vec<String> {
     }
 }
 
-pub fn to_pivot_json(
-    data: &DataFrame,
-    group_cols: Vec<String>, // Columns to group by
-    pivot_col: String,       // Column to pivot
-    agg_func: String,        // Aggregation function (e.g., Expr::sum())
-    sort_columns: bool,      // Whether to sort pivoted columns
-) -> Result<HashMap<String, Value>, PolarsError> {
-    let mut json_map = HashMap::new();
-
-    // ------------------------------------------------------------------
-    // 1) Validate Inputs
-    // ------------------------------------------------------------------
-    if group_cols.is_empty() {
-        json_map.insert(
-            "error".to_string(),
-            json!("At least one group column is required."),
-        );
-        return Ok(json_map);
-    }
-    info!("Group columns: {:?}", group_cols);
-
-    // Ensure all required columns exist
-    let required_cols = [&group_cols[..], &[pivot_col.as_str().to_string()]].concat();
-    for col in &required_cols {
-        if data.column(col).is_err() {
-            json_map.insert(
-                "error".to_string(),
-                json!(format!("Column '{}' not found in DataFrame", col)),
-            );
-            error!("Column '{}' not found in DataFrame", col);
-            return Ok(json_map);
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // 2) Group and Aggregate Data
-    // ------------------------------------------------------------------
-    let aggregator = get_aggregator("price_in_eur", &agg_func);
-    let aggs = match &aggregator {
-        Some(agg) => vec![agg.clone()],
-        None => {
-            json_map.insert(
-                "error".to_string(),
-                json!(format!("Unsupported aggregator: '{}'", agg_func)),
-            );
-            error!("Unsupported aggregator: '{}'", agg_func);
-            return Ok(json_map);
-        }
-    };
-    let sort = SortMultipleOptions::new()
-        .with_order_descending_multi(vec![true])
-        .with_nulls_last(true);
-    let grouped_ok = data
-        .clone()
-        .lazy()
-        .group_by(group_cols.iter().map(|c| col(c)).collect::<Vec<_>>())
-        .agg(&aggs)
-        .sort(vec!["year"], sort)
-        .collect();
-    let grouped = match grouped_ok {
-        Ok(grouped) => {
-            info!("Grouped data: {:?}", grouped);
-            grouped
-        }
-        Err(e) => {
-            error!("Error grouping data: {}", e);
-            json_map.insert("error".to_string(), json!(format!("{}", e)));
-            return Ok(json_map);
-        }
-    };
-
-    // ------------------------------------------------------------------
-    // 3) Perform Pivot
-    // ------------------------------------------------------------------
-
-    let base_cols = group_cols
-        .iter()
-        .filter(|c| *c != &pivot_col)
-        .cloned()
-        .collect::<Vec<_>>();
-    let pivoted = pivot(
-        &grouped,
-        [pivot_col],             // Pivot column (e.g., engine)
-        Some(base_cols.clone()), // Index columns
-        Some([agg_func]),        // Values column
-        sort_columns,            // Whether to sort pivoted columns
-        None,                    // No additional aggregation needed
-        None,                    // No separator
-    )?;
-
-    let filled_pivoted = pivoted.lazy().fill_null(lit(0)).collect()?;
-    info!("Pivoted data: {:?}", &filled_pivoted);
-    // ------------------------------------------------------------------
-    // 4) Extract Labels and Datasets
-    // ------------------------------------------------------------------
-    let year_col = filled_pivoted.column("year")?.i32()?;
-    let gearbox_col = filled_pivoted.column("gearbox")?.str()?;
-
-    let labels = year_col
-        .into_iter()
-        .zip(gearbox_col.into_iter())
-        .map(|(year, gearbox)| {
-            match (year, gearbox) {
-                (Some(y), Some(g)) => format!("{} ({})", y, g), // Combine year and gearbox
-                (Some(y), None) => y.to_string(),
-                _ => "Unknown".to_string(),
-            }
-        })
-        .collect::<Vec<_>>();
-
-    // Generate distinct colors for each pivoted column
-    let unique_values = filled_pivoted
-        .get_columns()
-        .iter()
-        .filter(|col| !base_cols.contains(&col.name().to_string())) // Exclude the labels column
-        .map(|col| col.name().to_string())
-        .collect::<Vec<_>>();
-
-    let colors = generate_colors(unique_values.len());
-    let mut datasets = vec![];
-    info!("Unique values: {:?}", unique_values);
-    for (idx, value) in unique_values.iter().enumerate() {
-        if let Ok(data_series) = filled_pivoted.column(value) {
-            let data = match data_series.dtype() {
-                DataType::String => data_series
-                    .str()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or("").parse::<f64>().unwrap_or(0.0))
-                    .collect::<Vec<_>>(),
-                DataType::Float64 => data_series
-                    .f64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0.0))
-                    .collect::<Vec<_>>(),
-                DataType::UInt32 => data_series
-                    .u32()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64) // Convert to f64
-                    .collect::<Vec<_>>(),
-                DataType::UInt64 => data_series
-                    .u64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64) // Convert to f64
-                    .collect::<Vec<_>>(),
-                DataType::Int32 => data_series
-                    .i32()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64) // Convert to f64
-                    .collect::<Vec<_>>(),
-                DataType::Int64 => data_series
-                    .i64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64) // Convert to f64
-                    .collect::<Vec<_>>(),
-                _ => {
-                    return Err(PolarsError::ComputeError(
-                        format!("Unsupported data type: {:?}", data_series.dtype()).into(),
-                    ))
-                }
-            };
-
-            datasets.push(json!({
-                "label": value,
-                "data": data,
-                "backgroundColor": colors[idx]
-            }));
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // 5) Build Final JSON
-    // ------------------------------------------------------------------
-    json_map.insert("labels".to_string(), json!(labels));
-    json_map.insert("datasets".to_string(), Value::Array(datasets));
-
-    Ok(json_map)
-}
-
-pub fn get_aggregator(column: &str, aggregator: &str) -> Option<Expr> {
-    match aggregator {
-        "count" => Some(col(column).count().alias(aggregator)),
-        "min" => Some(col(column).min().alias(aggregator)),
-        "max" => Some(col(column).max().alias(aggregator)),
-        "mean" => Some(col(column).mean().alias(aggregator)),
-        "median" => Some(col(column).median().alias(aggregator)),
-        "sum" => Some(col(column).sum().alias(aggregator)),
-        "avg" => Some(col(column).sum() / col(column).count().alias(aggregator)),
-        "std" => Some(col(column).std(1).alias(aggregator)),
-        "rsd" => Some(col(column).std(1) / col(column).mean().alias(aggregator)),
-        "quantile_60" => Some(
-            col(column)
-                .quantile(0.60.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        "quantile_66" => Some(
-            col(column)
-                .quantile(0.66.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        "quantile_70" => Some(
-            col(column)
-                .quantile(0.70.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        "quantile_75" => Some(
-            col(column)
-                .quantile(0.75.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        "quantile_80" => Some(
-            col(column)
-                .quantile(0.80.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        "quantile_90" => Some(
-            col(column)
-                .quantile(0.90.into(), polars::prelude::QuantileMethod::Nearest)
-                .alias(aggregator),
-        ),
-        _ => None, // Return None for unsupported aggregators
-    }
-}
-
-fn generate_colors(count: usize) -> Vec<String> {
-    let palette = vec![
-        "rgba(75, 192, 192, 0.8)",  // Teal
-        "rgba(255, 99, 132, 0.8)",  // Pink
-        "rgba(54, 162, 235, 0.8)",  // Blue
-        "rgba(255, 206, 86, 0.8)",  // Yellow
-        "rgba(153, 102, 255, 0.8)", // Purple
-        "rgba(255, 159, 64, 0.8)",  // Orange
-    ];
-
-    (0..count)
-        .map(|i| palette[i % palette.len()].to_string())
-        .collect()
-}
-
 /// Utility: Convert a Polars Series to a Vec<f64>, for aggregator columns
 /// (like "count", "sum", "mean", etc.).
 fn series_to_f64_vec(series: &Series) -> Vec<f64> {
@@ -835,7 +453,7 @@ mod test_stat {
         configure_log4rs,
         model::AxumAPIModel::Order,
         services::{
-            PriceService::{stat_distribution, StatisticSearchPayload},
+            AnalysisService::{stat_distribution, StatisticSearchPayload},
             VehicleService::to_generic_json,
         },
     };

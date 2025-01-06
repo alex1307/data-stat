@@ -1,30 +1,26 @@
-//! Run with
-//!
-//! ```not_rust
-//! cargo run -p example-readme
-//! ```
-
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 
 use axum::{
     body::Body,
-    extract::{Host, Path, Query, Request},
+    extract::{OriginalUri, Path, Query, Request},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
 
-use axum_prometheus::PrometheusMetricLayer;
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use data_statistics::{
     configure_log4rs,
-    model::AxumAPIModel::{DataToBinsRequest, RuntimeErrorResponse, StatisticSearchPayload},
+    model::AxumAPIModel::{
+        DataToBinsRequest, PivotData, RuntimeErrorResponse, StatisticSearchPayload,
+    },
     services::{
+        AnalysisService::stat_distribution,
         ChartServices::{chartData, data_to_bins},
+        PivotService::pivot_chart,
         PriceCalculatorService::calculateStatistic,
-        PriceService::{chart_data, stat_distribution},
         VehicleService::search,
     },
     Payload, VEHICLES_DATA,
@@ -43,7 +39,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
     //tracing_subscriber::fmt::init();
     configure_log4rs("resources/log4rs.yml");
     info!("Starting server...");
@@ -73,15 +68,14 @@ async fn main() {
         // `POST /users` goes to `create_user`
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
-        .route("/analysis-chart", post(analysis_chart_data))
+        .route("/pivot-chart", post(analysis_chart_data))
         .route("/calculator", post(calculate))
         .route("/data-distribution", post(data_bins))
         .route("/data-stat", post(data_stat))
-        .route("/enums/:name", get(enums))
-        .route("/enums/:make/models", get(models))
-        .route("/metrics", get(|| async move { metric_handle.render() }))
-        .layer(cors)
-        .layer(prometheus_layer);
+        .route("/enums/{name}", get(enums))
+        .route("/enums/{make}/models", get(models))
+        //.route("/metrics", get(|| async move { metric_handle.render() }))
+        .layer(cors);
     // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
     // It provides good defaults but is also very customizable.
     //
@@ -112,8 +106,8 @@ async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResp
     (StatusCode::OK, Json(response))
 }
 
-async fn analysis_chart_data(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
-    let response = chart_data(payload);
+async fn analysis_chart_data(Json(payload): Json<PivotData>) -> impl IntoResponse {
+    let response = pivot_chart(payload);
     (StatusCode::OK, Json(response))
 }
 
@@ -148,13 +142,13 @@ async fn data_bins(Json(payload): Json<DataToBinsRequest>) -> impl IntoResponse 
 
 async fn models(
     Path(make): Path<String>,
-    Host(hostname): Host,
+    OriginalUri(original_uri): OriginalUri,
     Query(source): Query<HashMap<String, String>>,
     request: Request<Body>,
 ) -> impl IntoResponse {
     request.extensions().get::<String>();
     info!("Query: {:?}", request.uri().query());
-    info!("Host: {:?}", hostname);
+    info!("Original URI: {:?}", original_uri);
     info!("Make: {:?}", make);
     let map = if source.is_empty() {
         data_statistics::services::EnumService::models(&make, &VEHICLES_DATA)
@@ -176,13 +170,11 @@ async fn models(
 }
 async fn enums(
     Path(name): Path<String>,
-    Host(hostname): Host,
     Query(source): Query<HashMap<String, String>>,
     request: Request<Body>,
 ) -> impl IntoResponse {
     request.extensions().get::<String>();
     info!("Query: {:?}", request.uri().query());
-    info!("Host: {:?}", hostname);
     let map = if source.is_empty() {
         info!("source is empty: Name: {:?}", name);
         data_statistics::services::EnumService::select(&name, &VEHICLES_DATA)

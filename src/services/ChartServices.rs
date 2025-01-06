@@ -17,11 +17,11 @@ use crate::{
         Quantiles::{generate_quantiles, Quantile},
         Statistics,
     },
-    services::PriceService::to_aggregator,
+    services::Utils::to_predicate,
     VEHICLE_STATIC_DATA,
 };
 
-use super::PriceService::to_predicate;
+use super::Utils::to_aggregator;
 
 pub fn chartData(search: StatisticSearchPayload) -> StatisticResponse {
     let df = VEHICLE_STATIC_DATA.clone();

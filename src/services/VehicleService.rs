@@ -6,7 +6,7 @@ use polars::{
     chunked_array::ops::SortMultipleOptions,
     datatypes::DataType,
     frame::DataFrame,
-    lazy::dsl::{col, lit, Expr},
+    lazy::dsl::{col, Expr},
     prelude::{Literal, PlSmallStr},
 };
 
@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 
 use crate::{model::AxumAPIModel::StatisticSearchPayload, HIDDEN_COLUMNS, VEHICLES_DATA};
 
-use super::PriceService::to_predicate;
+use super::Utils::to_predicate;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PredicateFilter<T: ToOwned + ToString + Debug + Clone + Literal> {
@@ -132,50 +132,6 @@ struct PriceFilter {
     last_updated_on_before: Option<String>,
     last_updated_on_after: Option<String>,
     last_updated_on_eq: Option<String>,
-}
-
-pub fn to_like_predicate<T: ToString + ToOwned + Debug + Literal>(
-    filter: HashMap<String, T>,
-    join_and: bool,
-) -> Option<polars::lazy::dsl::Expr> {
-    let mut predicates = vec![];
-    let mut column_predicates = vec![];
-    for (c, v) in filter.iter() {
-        let p = if v.to_string().starts_with('*') {
-            col(c).str().ends_with(lit(v.to_string().replace('*', "")))
-        } else if v.to_string().ends_with('*') {
-            col(c)
-                .str()
-                .starts_with(lit(v.to_string().replace('*', "")))
-        } else {
-            col(c).str().contains(lit(v.to_string()), false)
-        };
-        column_predicates.push(p);
-    }
-
-    let column_predicate = column_predicates
-        .iter()
-        .cloned()
-        .reduce(|acc, b| acc.or(b))
-        .unwrap();
-
-    predicates.push(column_predicate);
-
-    if predicates.is_empty() {
-        return None;
-    }
-    if predicates.len() == 1 {
-        return Some(predicates[0].clone());
-    }
-    let mut predicate = predicates[0].clone();
-    for p in predicates.iter().skip(1) {
-        if join_and {
-            predicate = predicate.and(p.clone());
-        } else {
-            predicate = predicate.or(p.clone());
-        }
-    }
-    Some(predicate)
 }
 
 pub fn group_by(aggregator: HashMap<String, Vec<GroupFunc>>) -> impl AsRef<[Expr]> {
@@ -345,9 +301,10 @@ mod tests {
 
     use polars::{
         chunked_array::ops::SortMultipleOptions, datatypes::DataType, lazy::frame::IntoLazy,
+        prelude::lit,
     };
 
-    use crate::VEHICLES_DATA;
+    use crate::{services::Utils::to_like_predicate, VEHICLES_DATA};
 
     use super::*;
 
