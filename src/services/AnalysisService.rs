@@ -1,25 +1,18 @@
-use std::{
-    collections::{BTreeMap, HashMap as StdHashMap, HashMap, HashSet},
-    vec,
-};
+use std::collections::HashMap;
 
 use log::info;
 
 use polars::{
-    frame::DataFrame,
+    error::PolarsError,
     lazy::dsl::col,
-    prelude::{DataType, LazyFrame, SortMultipleOptions},
-    series::Series,
+    prelude::{lit, pivot::pivot, IntoLazy, LazyFrame, SortMultipleOptions},
 };
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::{
     model::AxumAPIModel::{PivotData, StatisticSearchPayload},
-    services::{
-        PivotService::to_pivot_json,
-        Utils::{to_aggregator, to_predicate},
-    },
+    services::Utils::{to_aggregator, to_predicate},
     PRICE_DATA,
 };
 
@@ -30,414 +23,155 @@ pub struct StatisticService {
 }
 
 pub fn stat_distribution(search: StatisticSearchPayload) -> HashMap<String, Value> {
-    let df: LazyFrame = PRICE_DATA.clone();
+    let filtered = filterAndAggregateData(&search).unwrap();
+    process_results(filtered, search).unwrap()
+}
+
+pub fn pivot_distribution(payload: PivotData) -> Result<HashMap<String, Value>, PolarsError> {
+    let filter = payload.filter.clone();
+    let group = match &filter.group {
+        Some(group) if !group.is_empty() => group,
+        _ => return Err(PolarsError::ComputeError("Group is required".into()))?,
+    };
+    if group.is_empty() {
+        return Err(PolarsError::ComputeError(
+            "At least one group by column is required".into(),
+        ));
+    }
 
     // Group by the required columns and calculate the required statistics
+
+    let data = filterAndAggregateData(&filter)?;
+    if let Some(pivot_column) = payload.pivot_column {
+        let index = group
+            .into_iter()
+            .filter(|c| c.as_str() != pivot_column.as_str())
+            .map(|c| c.clone())
+            .collect::<Vec<String>>();
+        let pivoted = pivot(
+            &data.collect().unwrap(),
+            vec![pivot_column],                 // Pivot column
+            Some(index),                        // Index columns
+            Some([payload.y_function.clone()]), // Values column
+            true,                               // Sort pivoted columns
+            Some(polars::prelude::Expr::sum(col(&payload.y_function))), // No additional aggregation needed
+            None,                                                       // No separator
+        )
+        .unwrap();
+        info!("{:?}", pivoted);
+        process_results(
+            pivoted.lazy().fill_null(lit(0)).collect()?.lazy(),
+            payload.filter,
+        )
+    } else {
+        Ok(stat_distribution(payload.filter))
+    }
+}
+
+pub fn filterAndAggregateData(search: &StatisticSearchPayload) -> Result<LazyFrame, PolarsError> {
+    use polars::prelude::*;
+
+    // Clone the PRICE_DATA LazyFrame
+    let df: LazyFrame = PRICE_DATA.clone();
+
+    // Log the incoming search payload
     info!("Payload: {:?}", search);
-    let filterConditions = to_predicate(search.clone());
-    let group: Vec<String>;
-    let aggregators: Vec<String>;
-    if search.group.is_none() {
-        let mut error_map = HashMap::new();
-        error_map.insert("error".to_string(), "Group is required".into());
-        return error_map;
-    } else {
-        group = search.group.clone().unwrap();
-        if group.is_empty() {
-            let mut error_map = HashMap::new();
-            error_map.insert("error".to_string(), "Group is required".into());
-            return error_map;
-        }
-    }
-    if search.aggregators.is_none() {
-        let mut error_map = HashMap::new();
-        error_map.insert("error".to_string(), "Aggregators are required".into());
-        return error_map;
-    } else {
-        aggregators = search.aggregators.clone().unwrap();
-        if aggregators.is_empty() {
-            let mut error_map = HashMap::new();
-            error_map.insert("error".to_string(), "Aggregators are required".into());
-            return error_map;
-        }
-    }
 
-    let by = group.iter().map(col).collect::<Vec<_>>();
-    let stat_column = search
-        .stat_column
-        .clone()
-        .unwrap_or("price_in_eur".to_string());
-    let aggregators = to_aggregator(aggregators.clone(), &stat_column);
-
-    let filtered = df
-        .with_columns(&[
-            col("make"),
-            col("model"),
-            col("year"),
-            col("engine"),
-            col("gearbox"),
-            col("power"),
-            col("mileage"),
-            col("cc"),
-            col("mileage_breakdown"),
-            col("power_breakdown"),
-            col("price_in_eur"),
-            col("estimated_price_in_eur"),
-            col("save_diff_in_eur"),
-            col("extra_charge_in_eur"),
-            col("discount"),
-            col("increase"),
-        ])
-        .filter(filterConditions)
-        .group_by(by.as_slice())
-        .agg(&aggregators);
-    let result = if !search.order.is_empty() {
-        let mut columns = Vec::new();
-        let mut orders = Vec::new();
-
-        for sort in search.order.iter() {
-            columns.push(sort.column.clone());
-            orders.push(!sort.asc);
-        }
-        info!("Columns: {:?}", columns);
-        info!("Orders: {:?}", orders);
-        let sort = SortMultipleOptions::new()
-            .with_order_descending_multi(orders)
-            .with_nulls_last(true);
-        filtered.sort(&columns, sort).collect().unwrap()
-    } else {
-        filtered.collect().unwrap()
+    // Validate the group fields in the search payload
+    let group = match search.group.clone() {
+        Some(group) if !group.is_empty() => group,
+        _ => return Err(PolarsError::ComputeError("Group is required".into())),
     };
 
-    to_generic_json(&result)
+    // Validate the aggregators in the search payload
+    let aggregators = match search.aggregators.clone() {
+        Some(aggregators) if !aggregators.is_empty() => aggregators,
+        _ => return Err(PolarsError::ComputeError("Aggregators are required".into())),
+    };
+
+    // Prepare the group-by columns
+    let by = group.iter().map(col).collect::<Vec<_>>();
+
+    // Determine the stat column or use a default value
+    let stat_column = search
+        .clone()
+        .stat_column
+        .unwrap_or_else(|| "price_in_eur".to_string());
+
+    // Convert aggregators into their corresponding Polars aggregation expressions
+    let aggregators = to_aggregator(aggregators.clone(), &stat_column);
+
+    // Build filter conditions from the search payload
+    let filter_conditions = to_predicate(search.clone());
+
+    // Select relevant columns
+    let selected_columns = vec![
+        "make",
+        "model",
+        "year",
+        "engine",
+        "gearbox",
+        "power",
+        "mileage",
+        "cc",
+        "mileage_breakdown",
+        "power_breakdown",
+        "price_in_eur",
+        "estimated_price_in_eur",
+        "save_diff_in_eur",
+        "extra_charge_in_eur",
+        "discount",
+        "increase",
+    ]
+    .into_iter()
+    .map(col)
+    .collect::<Vec<_>>();
+
+    // Return the LazyFrame with transformations applied
+    Ok(df
+        .with_columns(&selected_columns)
+        .filter(filter_conditions)
+        .group_by(by.as_slice())
+        .agg(&aggregators))
+}
+
+pub fn process_results(
+    filtered: LazyFrame,
+    search: StatisticSearchPayload,
+) -> Result<HashMap<String, Value>, PolarsError> {
+    // Check if sorting is required
+    let result_df = if !search.order.is_empty() {
+        // Prepare columns and sorting orders
+        let (columns, orders): (Vec<_>, Vec<_>) = search
+            .order
+            .iter()
+            .map(|sort| (sort.column.clone(), !sort.asc)) // Convert asc to desc logic
+            .unzip();
+
+        // Log sorting details
+        info!("Columns: {:?}", columns);
+        info!("Orders: {:?}", orders);
+
+        // Configure sorting options
+        let sort_options = SortMultipleOptions::new()
+            .with_order_descending_multi(orders)
+            .with_nulls_last(true);
+
+        // Apply sorting to the LazyFrame
+        filtered.sort(&columns, sort_options).collect()?
+    } else {
+        // No sorting, materialize the LazyFrame
+        filtered.collect()?
+    };
+
+    // Convert the resulting DataFrame to a JSON-compatible structure
+    Ok(to_generic_json(&result_df))
 }
 
 //pub fn chart_data(search: StatisticSearchPayload) -> HashMap<String, Value> {
-pub fn chart_data(payload: PivotData) -> HashMap<String, Value> {
-    let search = payload.filter.clone();
-    let df: LazyFrame = PRICE_DATA.clone();
-
-    // Group by the required columns and calculate the required statistics
-    info!("Payload: {:?}", search);
-    let filterConditions = to_predicate(search.clone());
-    let group: Vec<String>;
-    let aggregators: Vec<String>;
-    if search.group.is_none() {
-        let mut error_map = HashMap::new();
-        error_map.insert("error".to_string(), "Group is required".into());
-        return error_map;
-    } else {
-        group = search.group.clone().unwrap();
-        if group.is_empty() {
-            let mut error_map = HashMap::new();
-            error_map.insert("error".to_string(), "Group is required".into());
-            return error_map;
-        }
-    }
-    if search.aggregators.is_none() {
-        let mut error_map = HashMap::new();
-        error_map.insert("error".to_string(), "Aggregators are required".into());
-        return error_map;
-    } else {
-        aggregators = search.aggregators.clone().unwrap();
-        if aggregators.is_empty() {
-            let mut error_map = HashMap::new();
-            error_map.insert("error".to_string(), "Aggregators are required".into());
-            return error_map;
-        }
-    }
-
-    let by = group.iter().map(col).collect::<Vec<_>>();
-    let stat_column = search
-        .stat_column
-        .clone()
-        .unwrap_or("price_in_eur".to_string());
-    let aggregators = to_aggregator(aggregators.clone(), &stat_column);
-    let filtered = df
-        .with_columns(&[
-            col("make"),
-            col("model"),
-            col("year"),
-            col("engine"),
-            col("gearbox"),
-            col("power"),
-            col("mileage"),
-            col("cc"),
-            col("mileage_breakdown"),
-            col("power_breakdown"),
-            col("price_in_eur"),
-            col("estimated_price_in_eur"),
-            col("save_diff_in_eur"),
-            col("extra_charge_in_eur"),
-            col("discount"),
-            col("increase"),
-        ])
-        .filter(filterConditions);
-
-    let data_aggregated = filtered.clone().group_by(by.as_slice()).agg(&aggregators);
-    let result = if !search.order.is_empty() {
-        let mut columns = Vec::new();
-        let mut orders = Vec::new();
-
-        for sort in search.order.iter() {
-            columns.push(sort.column.clone());
-            orders.push(!sort.asc);
-        }
-        info!("Columns: {:?}", columns);
-        info!("Orders: {:?}", orders);
-        let sort = SortMultipleOptions::new()
-            .with_order_descending_multi(orders)
-            .with_nulls_last(true);
-        data_aggregated.sort(&columns, sort).collect().unwrap()
-    } else {
-        data_aggregated.collect().unwrap()
-    };
-    let groups = search.group.clone().unwrap();
-    let aggregator = search.aggregators.clone().unwrap()[0].clone();
-    if groups.len() <= 2 {
-        to_stacked_bars_json(&result, group, &aggregator)
-    } else {
-        let pivot_col = search.group.clone().unwrap()[1].clone();
-        let x_col = search.group.clone().unwrap()[0].clone();
-        let stacked_col = search.group.clone().unwrap()[2].clone();
-        info!("Pivot: {:?}", pivot_col);
-        info!("X: {:?}", x_col);
-        info!("Stacked: {:?}", stacked_col);
-        info!("Aggregator: {:?}", aggregator);
-        to_pivot_json(
-            &filtered.collect().unwrap(),
-            &payload, // Sort pivoted columns
-        )
-        .unwrap()
-    }
-}
-
-pub fn to_stacked_bars_json(
-    data: &DataFrame,
-    group_cols: Vec<String>, // e.g. ["year", "gearbox", "engine"]
-    aggregator_col: &str,    // e.g. "count"
-) -> HashMap<String, Value> {
-    let mut json_map = HashMap::new();
-
-    // Bootstrap dark mode colors
-    let dark_mode_colors = vec![
-        "rgba(75, 192, 192, 0.8)",  // Teal
-        "rgba(255, 99, 132, 0.8)",  // Pink
-        "rgba(54, 162, 235, 0.8)",  // Blue
-        "rgba(255, 206, 86, 0.8)",  // Yellow
-        "rgba(153, 102, 255, 0.8)", // Purple
-        "rgba(255, 159, 64, 0.8)",  // Orange
-        "rgba(201, 203, 207, 0.8)", // Grey
-    ];
-
-    // ------------------------------------------------------------------
-    // 1) Basic info: itemsCount, columns, metadata
-    // ------------------------------------------------------------------
-    json_map.insert("itemsCount".to_owned(), data.height().into());
-    let column_values = data.get_columns();
-    info!("Found results: {}", data.height());
-    info!("Column count: {}", column_values.len());
-
-    // ------------------------------------------------------------------
-    // 2) Identify group & aggregator columns
-    // ------------------------------------------------------------------
-    let mut group_series = Vec::new();
-    for col_name in group_cols {
-        match data.column(&col_name) {
-            Ok(s) => group_series.push(s),
-            Err(_) => {
-                json_map.insert(
-                    "error".to_string(),
-                    json!(format!(
-                        "Group column '{}' not found in DataFrame",
-                        col_name
-                    )),
-                );
-                return json_map;
-            }
-        }
-    }
-
-    let agg_series = match data.column(aggregator_col) {
-        Ok(s) => s,
-        Err(_) => {
-            json_map.insert(
-                "error".to_string(),
-                json!(format!("Aggregator column '{}' not found", aggregator_col)),
-            );
-            return json_map;
-        }
-    };
-
-    // ------------------------------------------------------------------
-    // 3) Collect X-axis labels
-    // ------------------------------------------------------------------
-    let x_col = group_series[0];
-    let x_values = series_to_string_vec(x_col.as_series().unwrap());
-
-    let unique_x_set: HashSet<String> = x_values.iter().cloned().collect();
-    let mut sorted_x: Vec<String> = unique_x_set.into_iter().collect();
-    sorted_x.sort_by_key(|lbl| lbl.parse::<i32>().unwrap_or(i32::MIN));
-
-    // ------------------------------------------------------------------
-    // 4) Build data map
-    // ------------------------------------------------------------------
-    let second_val_series_opt = if group_series.len() > 1 {
-        Some(group_series[1])
-    } else {
-        None
-    };
-    let third_val_series_opt = if group_series.len() > 2 {
-        Some(group_series[2])
-    } else {
-        None
-    };
-
-    let second_vals = second_val_series_opt.map(|s| series_to_string_vec(s.as_series().unwrap()));
-    let third_vals = third_val_series_opt.map(|s| series_to_string_vec(s.as_series().unwrap()));
-    let agg_values = series_to_f64_vec(agg_series.as_series().unwrap());
-
-    let mut data_map: StdHashMap<(String, String), BTreeMap<String, f64>> = StdHashMap::new();
-
-    for i in 0..data.height() {
-        let x_val = &x_values[i];
-        let s_val = match &second_vals {
-            Some(vec) => &vec[i],
-            None => "",
-        };
-        let t_val = match &third_vals {
-            Some(vec) => &vec[i],
-            None => "",
-        };
-        let a_val = agg_values[i];
-        let key = (s_val.to_string(), t_val.to_string());
-        data_map
-            .entry(key)
-            .or_insert_with(BTreeMap::new)
-            .insert(x_val.clone(), a_val);
-    }
-
-    // ------------------------------------------------------------------
-    // 5) Create datasets with colors
-    // ------------------------------------------------------------------
-    let mut dataset_entries = Vec::new();
-    let mut all_keys: Vec<_> = data_map.keys().cloned().collect();
-    all_keys.sort();
-
-    for (i, (s_val, t_val)) in all_keys.iter().enumerate() {
-        let label = match group_series.len() {
-            1 => "Count".to_string(),
-            2 => s_val.clone(),
-            3 => format!("{} - {}", s_val, t_val),
-            _ => "N/A".to_string(),
-        };
-
-        let counts_map = &data_map[&(s_val.clone(), t_val.clone())];
-        let data_array: Vec<f64> = sorted_x
-            .iter()
-            .map(|xv| *counts_map.get(xv).unwrap_or(&0.0))
-            .collect();
-
-        // Assign colors using the dark_mode_colors palette, cycling if necessary
-        let color = dark_mode_colors[i % dark_mode_colors.len()];
-
-        let dataset = json!({
-            "label": label,
-            "data": data_array,
-            "backgroundColor": color
-        });
-        dataset_entries.push(dataset);
-    }
-
-    // ------------------------------------------------------------------
-    // 6) Final JSON structure
-    // ------------------------------------------------------------------
-    json_map.insert("labels".to_string(), json!(sorted_x));
-    json_map.insert("datasets".to_string(), Value::Array(dataset_entries));
-
-    json_map
-}
 
 /// Utility: Convert a Polars Series to a Vec<String>, handling common types
 /// (e.g., Int32, Int64, Float64, LargeUtf8, etc.).
-fn series_to_string_vec(series: &Series) -> Vec<String> {
-    // You can expand this to handle more data types as needed.
-    match series.dtype() {
-        DataType::Int32 => series
-            .i32()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v.to_string()).unwrap_or_default())
-            .collect(),
-        DataType::Int64 => series
-            .i64()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v.to_string()).unwrap_or_default())
-            .collect(),
-        DataType::Float64 => series
-            .f64()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v.to_string()).unwrap_or_default())
-            .collect(),
-        DataType::String => series
-            .str()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.unwrap_or("").to_string())
-            .collect(),
-        // fallback
-        _ => series
-            .cast(&DataType::String)
-            .unwrap()
-            .str()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.unwrap_or("").to_string())
-            .collect(),
-    }
-}
-
-/// Utility: Convert a Polars Series to a Vec<f64>, for aggregator columns
-/// (like "count", "sum", "mean", etc.).
-fn series_to_f64_vec(series: &Series) -> Vec<f64> {
-    match series.dtype() {
-        DataType::Int32 => series
-            .i32()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v as f64).unwrap_or(0.0))
-            .collect(),
-        DataType::Int64 => series
-            .i64()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v as f64).unwrap_or(0.0))
-            .collect(),
-        DataType::Float64 => series
-            .f64()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.unwrap_or(0.0))
-            .collect(),
-        DataType::Float32 => series
-            .f32()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.map(|v| v as f64).unwrap_or(0.0))
-            .collect(),
-        // fallback: try casting to Float64
-        _ => series
-            .cast(&DataType::Float64)
-            .unwrap()
-            .f64()
-            .unwrap()
-            .into_iter()
-            .map(|opt| opt.unwrap_or(0.0))
-            .collect(),
-    }
-}
 
 #[cfg(test)]
 mod test_stat {

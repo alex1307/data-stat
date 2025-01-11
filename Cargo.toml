@@ -62,7 +62,7 @@ polars = { version = "0.45", features = [
     "regex",
 
 ] }
-axum-prometheus = "0.7"
+axum-prometheus = "0.8"
 
 
 [build-dependencies]
@@ -70,7 +70,7 @@ prost-build = "0.13"
 
 
 [[bin]]
-name = "vehicle-data"
+name = "data-statistics"
 path = "src/bin/http_app.rs"
 
 [profile.release]

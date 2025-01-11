@@ -1,20 +1,21 @@
-use std::{collections::HashMap, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    vec,
+};
 
 use log::{error, info};
 use polars::{
     error::PolarsError,
     frame::DataFrame,
-    prelude::{
-        col, lit, pivot::pivot, ChunkUnique, DataType, IntoLazy, LazyFrame, SortMultipleOptions,
-    },
+    prelude::{col, lit, pivot::pivot, AnyValue, IntoLazy, LazyFrame, SortMultipleOptions},
 };
 use serde_json::{json, Value};
 
 use crate::{
     model::AxumAPIModel::PivotData,
     services::{
-        process_datasets, process_datasets_non_pivoted,
-        Utils::{generate_colors, get_aggregator, to_aggregator, to_predicate},
+        extract_labels, process_datasets,
+        Utils::{generate_colors, to_aggregator, to_predicate},
     },
     PRICE_DATA,
 };
@@ -155,74 +156,53 @@ pub fn to_pivot_json(
     };
 
     let pivoted = if let Some(pivot_column) = &pivot_data.pivot_column {
+        info!("Pivoting data...");
+        info!("Grouped data: {:?}", &grouped);
+        info!("Base columns: {:?}", base_cols);
+        info!("Pivot column: {:?}", &pivot_column);
+        info!("Y function: {:?}", &pivot_data.y_function);
         pivot(
             &grouped,
             vec![pivot_column],                    // Pivot column
             Some(base_cols.clone()),               // Index columns
             Some([pivot_data.y_function.clone()]), // Values column
             true,                                  // Sort pivoted columns
-            None,                                  // No additional aggregation needed
-            None,                                  // No separator
+            Some(polars::prelude::Expr::sum(col(&pivot_data.y_function))), // No additional aggregation needed
+            None,                                                          // No separator
         )?
     } else {
         info!("No pivot column specified. Data set: {:?}", &grouped);
         grouped
     };
-
+    info!("Pivoted data: {:?}", &pivoted);
     let filled_pivoted = pivoted.lazy().fill_null(lit(0)).collect()?;
     info!("Pivoted data: {:?}", &filled_pivoted);
     // ------------------------------------------------------------------
     // 4) Extract Labels and Datasets
     // ------------------------------------------------------------------
-    let x_col_as_str = filled_pivoted
-        .column(&pivot_data.x_column)?
-        .cast(&DataType::String)?;
-    let x_col = x_col_as_str.str()?;
-    let labels = if pivot_data.pivot_column.is_none() {
-        x_col
-            .unique()?
-            .into_iter()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|opt| opt.unwrap_or_else(|| "Unknown").to_string())
-            .collect::<Vec<_>>()
-    } else {
-        if let Some(second_column) = &pivot_data.second_x_column {
-            let second_x_col_as_str = filled_pivoted
-                .column(second_column)?
-                .cast(&DataType::String)?;
-            let second_x_col = second_x_col_as_str.str()?;
-            x_col
-                .into_iter()
-                .zip(second_x_col.into_iter())
-                .map(|(x, y)| {
-                    match (x, y) {
-                        (Some(x), Some(y)) => format!("{} ({})", x, y), // Combine x and y columns
-                        (Some(x), None) => x.to_string(),
-                        _ => "Unknown".to_string(),
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            x_col
-                .into_iter()
-                .map(|opt| opt.unwrap_or_else(|| "Unknown").to_string())
-                .collect::<Vec<_>>()
-        }
-    };
+
+    let labels = extract_labels(&filled_pivoted, &pivot_data.x_column)?;
 
     let datasets = if pivot_data.pivot_column.is_none() {
-        info!("Processing non-pivoted data");
+        let columns = if let Some(groups) = pivot_data.filter.group.clone() {
+            groups
+                .iter()
+                .filter(|col| col.as_str() != pivot_data.x_column)
+                .cloned()
+                .collect::<Vec<String>>()
+        } else {
+            vec![]
+        };
+
         process_datasets_non_pivoted(
             &filled_pivoted,
             &pivot_data.x_column,
             &pivot_data.y_function,
-            "engine",
+            columns.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
             generate_colors,
-        )
-        .unwrap()
+        )?
     } else {
-        process_datasets(&filled_pivoted, &base_cols, generate_colors).unwrap()
+        process_datasets(&filled_pivoted, &base_cols, generate_colors)?
     };
     info!("Datasets: {:?}", datasets);
     info!("Labels: {:?}", labels);
@@ -233,4 +213,105 @@ pub fn to_pivot_json(
     json_map.insert("datasets".to_string(), Value::Array(datasets));
 
     Ok(json_map)
+}
+
+pub fn process_datasets_non_pivoted(
+    df: &DataFrame,
+    label_col: &str,          // Column for labels (e.g., years)
+    value_col: &str,          // Column for count/values
+    grouping_cols: Vec<&str>, // Grouping columns (can be empty for no grouping)
+    generate_colors: impl Fn(usize) -> Vec<String>,
+) -> Result<Vec<Value>, PolarsError> {
+    let unique_groups: HashSet<String> = (0..df.height())
+        .map(|row_idx| {
+            grouping_cols
+                .iter()
+                .map(|col| {
+                    df.column(col).map(|series| {
+                        series
+                            .get(row_idx)
+                            .unwrap_or(polars::prelude::AnyValue::String("Unknown"))
+                            .to_string()
+                    })
+                })
+                .collect::<Result<Vec<_>, PolarsError>>()
+                .map(|vec| vec.join(", "))
+        })
+        .collect::<Result<HashSet<_>, PolarsError>>()?;
+
+    // Generate colors based on the number of unique groups
+    let colors = generate_colors(unique_groups.len());
+
+    let mut datasets_map: HashMap<String, Vec<u32>> = HashMap::new();
+    let mut labels = HashSet::new();
+
+    // Iterate through the rows of the DataFrame
+    info!("Grouping columns: {:?}", grouping_cols);
+    info!("Unique groups: {:?}", unique_groups);
+    info!("Number of rows: {}", df.height());
+    for row_idx in 0..df.height() {
+        // Get the label (x-axis value)
+        let label = df
+            .column(label_col)?
+            .get(row_idx)
+            .unwrap_or(AnyValue::String("Unknown"))
+            .to_string();
+        if label == "Unknown" {
+            error!("Unknown label found in row: {}", row_idx);
+        } else {
+            labels.insert(label.clone());
+        }
+
+        // Get the grouping key by concatenating all grouping column values
+        let group_key = grouping_cols
+            .iter()
+            .map(|col| {
+                df.column(col)
+                    .map(|series| {
+                        series
+                            .get(row_idx)
+                            .unwrap_or(polars::prelude::AnyValue::String("Unknown"))
+                            .to_string()
+                    })
+                    .unwrap_or_else(|_| "Unknown".to_string())
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        info!("Group key: {:?}", group_key);
+        // Get the value for this row
+        let value = match df.column(value_col)?.get(row_idx) {
+            Ok(AnyValue::Float64(val)) => val as u32,
+            Ok(AnyValue::Float32(val)) => val as u32,
+            Ok(AnyValue::Int64(val)) => val as u32,
+            Ok(AnyValue::Int32(val)) => val as u32,
+            Ok(AnyValue::UInt64(val)) => val as u32,
+            Ok(AnyValue::UInt32(val)) => val,
+            _ => 0,
+        };
+        if value == 0 {
+            error!("Zero value found in row: {}", row_idx);
+        }
+        // Add the label to the label set
+
+        // Update the dataset for the group
+        datasets_map.entry(group_key).or_default().push(value);
+    }
+
+    info!("Labels: {:?}, count: {}", labels, labels.len());
+
+    // Build the datasets
+    let datasets: Vec<Value> = datasets_map
+        .into_iter()
+        .enumerate()
+        .map(|(idx, (label, data))| {
+            json!({
+                "label": label,
+                "data": data,
+                "backgroundColor": colors[idx]
+            })
+        })
+        .collect();
+
+    // Return the result
+    Ok(datasets)
 }

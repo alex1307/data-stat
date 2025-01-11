@@ -6,8 +6,6 @@ pub mod PriceCalculatorService;
 pub mod Utils;
 pub mod VehicleService;
 
-use std::collections::HashMap;
-
 use log::info;
 use polars::error::PolarsResult;
 use polars::prelude::*;
@@ -42,122 +40,6 @@ pub fn process_datasets(
     Ok(datasets)
 }
 
-pub fn process_datasets_non_pivoted(
-    df: &DataFrame,
-    label_col: &str,  // Column for labels (e.g., years)
-    value_col: &str,  // Column for count/values
-    engine_col: &str, // Column for unique values (e.g., engines)
-    generate_colors: impl Fn(usize) -> Vec<String>,
-) -> Result<Vec<Value>, PolarsError> {
-    let axis_values = df
-        .column(label_col)?
-        .cast(&DataType::String)? // Ensure label column is cast to String for processing
-        .str()?
-        .unique()?
-        .into_iter()
-        .filter_map(|opt| opt.map(String::from)) // Convert Option<&str> to String
-        .collect::<Vec<String>>();
-
-    let unique_engines = df
-        .column(engine_col)?
-        .cast(&DataType::String)?
-        .str()?
-        .unique()?
-        .into_iter()
-        .filter_map(|opt| opt.map(String::from))
-        .collect::<Vec<String>>();
-
-    let mut datasets = vec![];
-    let colors = generate_colors(unique_engines.len());
-
-    for (idx, engine) in unique_engines.iter().enumerate() {
-        let mut data = vec![0; axis_values.len()]; // Initialize with 0 for all years
-
-        for (axis_idx, axis_value) in axis_values.iter().enumerate() {
-            let engine_mask = df
-                .column(engine_col)?
-                .cast(&DataType::String)?
-                .str()?
-                .into_iter()
-                .map(|opt| opt == Some(engine.as_str()))
-                .collect::<BooleanChunked>();
-
-            let year_mask = df
-                .column(label_col)?
-                .cast(&DataType::String)?
-                .str()?
-                .into_iter()
-                .map(|opt| opt == Some(axis_value.as_str()))
-                .collect::<BooleanChunked>();
-
-            let combined_mask = &engine_mask & &year_mask; // Combine masks to filter by engine and year
-            let filtered_df = df.filter(&combined_mask)?;
-            let value = match filtered_df.column(value_col)?.dtype() {
-                DataType::String => filtered_df
-                    .column(value_col)?
-                    .str()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or("").parse::<f64>().unwrap_or(0.0))
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                DataType::Float64 => filtered_df
-                    .column(value_col)?
-                    .f64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0.0))
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                DataType::UInt32 => filtered_df
-                    .column(value_col)?
-                    .u32()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64)
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                DataType::UInt64 => filtered_df
-                    .column(value_col)?
-                    .u64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64)
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                DataType::Int32 => filtered_df
-                    .column(value_col)?
-                    .i32()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64)
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                DataType::Int64 => filtered_df
-                    .column(value_col)?
-                    .i64()?
-                    .into_iter()
-                    .map(|opt| opt.unwrap_or(0) as f64)
-                    .collect::<Vec<f64>>()
-                    .pipe(Ok),
-                _ => Err(PolarsError::ComputeError(
-                    format!(
-                        "Unsupported data type: {:?}",
-                        filtered_df.column(value_col)?.dtype()
-                    )
-                    .into(),
-                )),
-            };
-            if let Ok(nvalue) = value {
-                data[axis_idx] = nvalue.iter().sum::<f64>() as i32;
-            }
-        }
-
-        datasets.push(json!({
-            "label": engine,
-            "data": data,
-            "backgroundColor": colors[idx]
-        }));
-    }
-
-    Ok(datasets)
-}
-
 pub fn extract_generic_column_values<T>(data_series: &Series) -> PolarsResult<Vec<T>>
 where
     T: From<String> + From<i32> + From<f32> + From<u32> + From<f64> + Default,
@@ -166,12 +48,7 @@ where
         DataType::String => data_series
             .str()?
             .into_iter()
-            .map(|opt| {
-                opt.map_or_else(
-                    || T::default(),
-                    |val| T::try_from(val.to_string()).unwrap_or_else(|_| T::default()),
-                )
-            })
+            .map(|opt| opt.map_or_else(|| T::default(), |val| T::from(val.to_string())))
             .collect::<Vec<T>>()
             .pipe(Ok),
         DataType::Float32 => data_series
@@ -254,6 +131,21 @@ pub fn extract_column_values(data_series: &Series) -> PolarsResult<Vec<f64>> {
             format!("Unsupported data type: {:?}", data_series.dtype()).into(),
         )),
     }
+}
+
+pub fn extract_labels(
+    filled_pivoted: &DataFrame,
+    x_column: &str,
+) -> Result<Vec<String>, PolarsError> {
+    let binding = filled_pivoted.column(x_column)?.cast(&DataType::String)?;
+    let x_col = binding.str()?;
+
+    // Convert the column to a vector of strings, handling missing values
+    Ok(x_col
+        .unique()?
+        .into_iter()
+        .map(|opt| opt.unwrap_or("Unknown").to_string())
+        .collect())
 }
 
 /// A helper trait to make piping syntax more readable.

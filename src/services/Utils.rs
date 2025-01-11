@@ -17,7 +17,7 @@ pub fn to_aggregator(aggregators: Vec<String>, column: &str) -> Vec<Expr> {
     agg
 }
 pub fn generate_colors(count: usize) -> Vec<String> {
-    let palette = vec![
+    let palette = [
         "rgba(75, 192, 192, 0.8)",  // Teal
         "rgba(255, 99, 132, 0.8)",  // Pink
         "rgba(54, 162, 235, 0.8)",  // Blue

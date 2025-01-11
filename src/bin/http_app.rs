@@ -17,7 +17,7 @@ use data_statistics::{
         DataToBinsRequest, PivotData, RuntimeErrorResponse, StatisticSearchPayload,
     },
     services::{
-        AnalysisService::stat_distribution,
+        AnalysisService::{pivot_distribution, stat_distribution},
         ChartServices::{chartData, data_to_bins},
         PivotService::pivot_chart,
         PriceCalculatorService::calculateStatistic,
@@ -68,7 +68,8 @@ async fn main() {
         // `POST /users` goes to `create_user`
         .route("/search", post(search_for_deals))
         .route("/statistic", post(statistic))
-        .route("/pivot-chart", post(analysis_chart_data))
+        .route("/pivot-data", post(pivot_data))
+        .route("/pivot-chart", post(pivot_chart_data))
         .route("/calculator", post(calculate))
         .route("/data-distribution", post(data_bins))
         .route("/data-stat", post(data_stat))
@@ -106,9 +107,23 @@ async fn statistic(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResp
     (StatusCode::OK, Json(response))
 }
 
-async fn analysis_chart_data(Json(payload): Json<PivotData>) -> impl IntoResponse {
+async fn pivot_chart_data(Json(payload): Json<PivotData>) -> impl IntoResponse {
     let response = pivot_chart(payload);
     (StatusCode::OK, Json(response))
+}
+
+async fn pivot_data(Json(payload): Json<PivotData>) -> impl IntoResponse {
+    info!("Pivot data: Payload: {:?}", payload);
+    match pivot_distribution(payload) {
+        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+        Err(err) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(RuntimeErrorResponse {
+                message: err.to_string(),
+            }),
+        )
+            .into_response(),
+    }
 }
 
 async fn calculate(Json(payload): Json<StatisticSearchPayload>) -> impl IntoResponse {
